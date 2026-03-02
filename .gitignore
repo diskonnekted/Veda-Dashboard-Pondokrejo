@@ -1,0 +1,11 @@
+# Binaries
+*.exe
+*.dll
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

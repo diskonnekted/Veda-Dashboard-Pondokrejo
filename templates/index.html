@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Sebaran Penduduk Pondokrejo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #map { height: 100%; }
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
+    <script>
+        // Simple Client-side Auth Check
+        if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = '/login';
+        }
+    </script>
+</head>
+<body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
+    <!-- Top Bar -->
+    <div class="bg-blue-800 text-white p-2 shadow-md flex items-center z-30 relative">
+        <img src="logo.png" alt="Logo Kalurahan" class="h-12 w-auto mr-3 object-contain bg-white rounded p-1">
+        <div>
+            <h1 class="text-xl font-bold leading-tight">Kalurahan Pondokrejo</h1>
+            <p class="text-sm opacity-90">Kapanewon Tempel - Sleman Yogyakarta</p>
+        </div>
+    </div>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Map Container -->
+        <div class="flex-1 relative z-10 h-full">
+            <div id="map" class="h-full w-full"></div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="w-80 bg-white shadow-lg z-20 flex flex-col h-full overflow-hidden border-l">
+            <!-- Logo Veda -->
+            <div class="bg-gray-900 p-4 flex justify-center items-center">
+                <img src="veda-logo.png" alt="Veda Logo" class="h-12 object-contain">
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b bg-gray-50">
+                <button id="tab-map" onclick="switchTab('map')" class="flex-1 py-3 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 bg-white focus:outline-none">Peta Sebaran</button>
+                <button id="tab-analysis" onclick="switchTab('analysis')" class="flex-1 py-3 text-sm font-semibold text-gray-500 hover:text-blue-600 focus:outline-none">Analisa Wilayah</button>
+            </div>
+
+            <!-- Tab Content: Map Filter -->
+            <div id="content-map" class="flex flex-col h-full overflow-hidden">
+                <!-- Default Sidebar Content (Filters) -->
+                <div id="sidebar-filters" class="flex flex-col h-full">
+                    <div class="p-4 bg-blue-600 text-white shadow">
+                        <h2 class="text-lg font-bold">Filter Peta</h2>
+                        <div class="text-xs mt-1">Pondokrejo, Sleman</div>
+                    </div>
+                    
+                    <div class="p-4 overflow-y-auto flex-1 space-y-6">
+                        
+                        <!-- Filter Tingkat Kemiskinan -->
+                        <div>
+                        <h3 class="font-semibold text-gray-700 mb-2 border-b pb-1">Tingkat Kemiskinan</h3>
+                        <div class="space-y-2 text-sm">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" class="filter-desil form-checkbox text-red-500 rounded" value="1" checked>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>Desil 1 (Sangat Miskin)</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" class="filter-desil form-checkbox text-orange-500 rounded" value="2" checked>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>Desil 2 (Miskin)</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" class="filter-desil form-checkbox text-yellow-500 rounded" value="3" checked>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>Desil 3 (Hampir Miskin)</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" class="filter-desil form-checkbox text-green-500 rounded" value="4" checked>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>Desil 4+ (Mampu)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Filter Padukuhan -->
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2 border-b pb-1">Padukuhan (Kode)</h3>
+                        <div id="filter-dusun" class="space-y-2 text-sm max-h-40 overflow-y-auto">
+                            <!-- Populated by JS -->
+                            <div class="text-gray-400 text-xs italic">Memuat data...</div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Bantuan -->
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2 border-b pb-1">Jenis Bantuan</h3>
+                        <div id="filter-aid" class="space-y-2 text-sm">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 text-xs text-gray-500 border-t">
+                        Total Data: <span id="total-count" class="font-bold text-gray-800">0</span> KK
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail Popup Content (Hidden by default) -->
+            <div id="sidebar-detail" class="flex flex-col h-full hidden bg-gray-50">
+                <div class="p-4 bg-blue-700 text-white shadow flex justify-between items-start">
+                    <div>
+                        <h2 class="text-lg font-bold">Detail Penduduk</h2>
+                        <div class="text-xs mt-1">Informasi Lengkap</div>
+                    </div>
+                    <button onclick="closeDetail()" class="text-white hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div id="detail-content" class="p-4 overflow-y-auto flex-1 text-sm space-y-4">
+                    <!-- Content populated by JS -->
+                </div>
+            </div>
+            </div> <!-- End content-map -->
+
+            <!-- Tab Content: Analysis -->
+            <div id="content-analysis" class="flex flex-col h-full overflow-hidden hidden bg-gray-50">
+                <div class="p-4 bg-purple-700 text-white shadow">
+                    <h2 class="text-lg font-bold">Analisa Wilayah</h2>
+                    <div class="text-xs mt-1">Statistik & Heatmap</div>
+                </div>
+                
+                <div class="p-4 overflow-y-auto flex-1 space-y-6">
+                    <!-- Control Panel -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Mode Tampilan</h3>
+                        <select id="analysis-mode" onchange="updateAnalysis()" class="w-full text-sm border-gray-300 rounded shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                            <option value="heatmap">Heatmap Kemiskinan (Desil 1 & 2)</option>
+                            <option value="cluster">Cluster Sebaran</option>
+                        </select>
+                    </div>
+
+                    <!-- Chart 1: Poverty by Dusun -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Sebaran Desil per Padukuhan</h3>
+                        <canvas id="chart-dusun" height="200"></canvas>
+                    </div>
+
+                    <!-- Chart 2: Aid Distribution -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Penerima Bantuan (Desil 1 & 2)</h3>
+                        <canvas id="chart-aid" height="200"></canvas>
+                    </div>
+
+                    <!-- Chart 3: Average Floor Area -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Rata-rata Luas Lantai per Desil</h3>
+                        <canvas id="chart-floor" height="200"></canvas>
+                    </div>
+
+                    <!-- Chart 4: Average Family Size -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Rata-rata Jumlah Anggota Keluarga per Desil</h3>
+                        <canvas id="chart-family" height="200"></canvas>
+                    </div>
+
+                    <!-- Chart 5: Aid Trend -->
+                    <div class="bg-white p-3 rounded shadow-sm border border-gray-200">
+                        <h3 class="font-semibold text-gray-700 text-sm mb-2">Tren Penerima Bantuan Baru (Per Tahun)</h3>
+                        <canvas id="chart-trend" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="p-4 bg-gray-900 text-center border-t border-gray-800">
+                <p class="text-xs text-gray-500 mb-2">Supported by</p>
+                <a href="https://clasnet.co.id" target="_blank" class="inline-block hover:opacity-80 transition">
+                    <img src="clasnet-logo.png" alt="Clasnet Logo" class="h-6 object-contain">
+                </a>
+                <div class="mt-2">
+                    <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            sessionStorage.removeItem('isLoggedIn');
+            window.location.href = '/login';
+        }
+
+        // Initialize map centered on Pondokrejo
+        const map = L.map('map', { zoomControl: false }).setView([-7.65, 110.31], 13);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // Base Layers
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        const baseMaps = {
+            "Peta Jalan": osmLayer,
+            "Satelit": satelliteLayer
+        };
+
+        L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);
+
+        // Marker Cluster Group
+        const markers = L.markerClusterGroup();
+
+        // Custom Icons
+        const createIcon = (color) => {
+            return new L.Icon({
+                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+        };
+
+        const icons = {
+            red: createIcon('red'),
+            orange: createIcon('orange'),
+            yellow: createIcon('yellow'),
+            green: createIcon('green'),
+            blue: createIcon('blue'),
+            grey: createIcon('grey')
+        };
+
+        // Global data storage
+        let allHouseholds = [];
+        let uniqueDusuns = new Set();
+        let uniqueAids = new Set();
+        let heatLayer = null;
+        let chartDusun = null;
+        let chartAid = null;
+        let chartFloor = null;
+        let chartFamily = null;
+        let chartTrend = null;
+        
+        // Fetch data
+        fetch('residents.json')
+            .then(response => response.json())
+            .then(data => {
+                allHouseholds = data;
+                document.getElementById('total-count').innerText = allHouseholds.length;
+                console.log("Data loaded:", data.length, "households");
+                
+                // Extract Filters
+                allHouseholds.forEach(hh => {
+                    if (hh.dusun) uniqueDusuns.add(hh.dusun);
+                    if (hh.members) {
+                        hh.members.forEach(m => {
+                            if (m.aid_list) {
+                                m.aid_list.forEach(aid => uniqueAids.add(aid));
+                            }
+                        });
+                    }
+                });
+                
+                populateFilters();
+                renderMarkers();
+            })
+            .catch(err => console.error("Error loading data:", err));
+
+        function populateFilters() {
+            // Populate Dusun
+            const dusunContainer = document.getElementById('filter-dusun');
+            dusunContainer.innerHTML = '';
+            
+            // Sort dusun codes
+            const sortedDusuns = Array.from(uniqueDusuns).sort();
+            
+            if (sortedDusuns.length === 0) {
+                 dusunContainer.innerHTML = '<div class="text-gray-400 text-xs italic">Tidak ada data padukuhan</div>';
+            } else {
+                sortedDusuns.forEach(dusun => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" class="filter-dusun form-checkbox text-blue-500 rounded" value="${dusun}" checked>
+                            <span>Padukuhan ${dusun}</span>
+                        </label>
+                    `;
+                    dusunContainer.appendChild(div);
+                });
+            }
+
+            // Populate Aid
+            const aidContainer = document.getElementById('filter-aid');
+            aidContainer.innerHTML = '';
+            
+            const sortedAids = Array.from(uniqueAids).sort();
+            
+             if (sortedAids.length === 0) {
+                 aidContainer.innerHTML = '<div class="text-gray-400 text-xs italic">Tidak ada data bantuan</div>';
+            } else {
+                sortedAids.forEach(aid => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" class="filter-aid form-checkbox text-purple-500 rounded" value="${aid}">
+                            <span>${aid}</span>
+                        </label>
+                    `;
+                    aidContainer.appendChild(div);
+                });
+            }
+
+            // Add Event Listeners
+            document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+                cb.addEventListener('change', renderMarkers);
+            });
+        }
+
+        function renderMarkers() {
+            markers.clearLayers();
+            
+            // Get Selected Filters
+            const selectedDesil = Array.from(document.querySelectorAll('.filter-desil:checked')).map(cb => cb.value);
+            const selectedDusun = Array.from(document.querySelectorAll('.filter-dusun:checked')).map(cb => cb.value);
+            const selectedAid = Array.from(document.querySelectorAll('.filter-aid:checked')).map(cb => cb.value);
+            
+            let displayedCount = 0;
+
+            allHouseholds.forEach(hh => {
+                if (!hh.latitude || !hh.longitude) return;
+
+                // Filter by Desil
+                let desilVal = parseInt(hh.welfare_level);
+                if (isNaN(desilVal)) desilVal = "N/A";
+                else if (desilVal >= 4) desilVal = "4"; // Map 4+ to 4
+                
+                if (!selectedDesil.includes(String(desilVal))) return;
+
+                // Filter by Dusun
+                // If hh.dusun is empty, maybe we should include it if 'N/A' or similar is selected?
+                // For now, if dusun filter exists, strict check.
+                if (uniqueDusuns.size > 0 && !selectedDusun.includes(hh.dusun)) return;
+
+                // Filter by Aid
+                // Logic: If NO aid filters are selected, SHOW ALL (ignore aid filter).
+                // If aid filters ARE selected, show households where AT LEAST ONE member has ONE of the selected aids.
+                // OR: show only households that match ALL selected aids? Usually "OR" logic within aid types is better for discovery,
+                // but "AND" logic across categories.
+                // Let's implement: If any aid filter selected, HH must have at least one member receiving one of those aids.
+                if (selectedAid.length > 0) {
+                    let hasAid = false;
+                    if (hh.members) {
+                        for (let m of hh.members) {
+                            if (m.aid_list && m.aid_list.some(a => selectedAid.includes(a))) {
+                                hasAid = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!hasAid) return;
+                }
+
+                displayedCount++;
+                
+                // Determine Color
+                let color = 'grey';
+                const desil = parseInt(hh.welfare_level);
+                
+                if (!isNaN(desil)) {
+                    if (desil === 1) color = 'red';
+                    else if (desil === 2) color = 'orange';
+                    else if (desil === 3) color = 'yellow';
+                    else if (desil >= 4) color = 'green';
+                } else {
+                    color = 'blue'; 
+                }
+
+                const marker = L.marker([hh.latitude, hh.longitude], { icon: icons[color] });
+                
+                // Add click event to show sidebar detail
+                marker.on('click', function() {
+                    showDetail(hh, color);
+                });
+                
+                markers.addLayer(marker);
+            });
+            
+            map.addLayer(markers);
+            document.getElementById('total-count').innerText = displayedCount;
+        }
+
+        function showDetail(hh, color) {
+            const detailPanel = document.getElementById('sidebar-detail');
+            const filtersPanel = document.getElementById('sidebar-filters');
+            const contentDiv = document.getElementById('detail-content');
+            
+            // Show Detail, Hide Filters
+            detailPanel.classList.remove('hidden');
+            filtersPanel.classList.add('hidden');
+
+            // Build Content
+            let colorClass = color === 'red' ? 'bg-red-500' : color === 'orange' ? 'bg-orange-500' : color === 'yellow' ? 'bg-yellow-500' : 'bg-green-500';
+            
+            let html = `
+                <div class="bg-white p-4 rounded shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="px-2 py-1 rounded text-xs text-white ${colorClass}">
+                            Desil ${hh.welfare_level || 'N/A'}
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono">KK: ${hh.no_kk}</span>
+                    </div>
+                    <h3 class="font-bold text-lg text-gray-800">${hh.head_name}</h3>
+                    <p class="text-gray-600 mt-1">${hh.address}</p>
+                    <p class="text-gray-500 text-xs mt-1">Padukuhan: ${hh.dusun || '-'}</p>
+                </div>
+
+                <div class="bg-white p-4 rounded shadow-sm border border-gray-200 space-y-2">
+                    <h4 class="font-semibold text-gray-700 border-b pb-1">Informasi Rumah Tangga</h4>
+                    
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="text-gray-500">Luas Lantai:</div>
+                        <div class="font-medium">${hh.lantai_luas || '-'} m²</div>
+                        
+                        <div class="text-gray-500">Penerima PKH:</div>
+                        <div class="font-medium">${hh.pkh_thn ? 'Sejak ' + hh.pkh_thn : '-'}</div>
+                        
+                        <div class="text-gray-500">Penerima BPNT:</div>
+                        <div class="font-medium">${hh.bpnt_thn ? 'Sejak ' + hh.bpnt_thn : '-'}</div>
+                    </div>
+
+                    ${hh.keterangan ? `
+                    <div class="mt-2 pt-2 border-t border-dashed">
+                        <div class="text-gray-500 text-xs mb-1">Catatan:</div>
+                        <div class="text-xs bg-yellow-50 p-2 rounded text-yellow-800 border border-yellow-100">
+                            ${hh.keterangan}
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <div class="bg-white p-4 rounded shadow-sm border border-gray-200">
+                    <h4 class="font-semibold text-gray-700 border-b pb-2 mb-3">Anggota Keluarga (${hh.members ? hh.members.length : 0})</h4>
+                    <div class="space-y-4">
+            `;
+
+            if (hh.members) {
+                hh.members.forEach(m => {
+                    html += `
+                        <div class="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                            <div class="flex justify-between items-start">
+                                <div class="font-medium text-gray-800">${m.name}</div>
+                                <div class="text-xs text-gray-400 font-mono">${m.nik}</div>
+                            </div>
+                            
+                            ${m.kerja_detail ? `<div class="text-xs text-gray-600 mt-1">💼 ${m.kerja_detail}</div>` : ''}
+                            ${m.ush_detail ? `<div class="text-xs text-gray-600 mt-0.5">🏪 ${m.ush_detail}</div>` : ''}
+                            
+                            ${m.aid_list && m.aid_list.length > 0 ? `
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                ${m.aid_list.map(aid => `<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] border border-blue-200">${aid}</span>`).join('')}
+                            </div>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            contentDiv.innerHTML = html;
+        }
+
+        function closeDetail() {
+            const detailPanel = document.getElementById('sidebar-detail');
+            const filtersPanel = document.getElementById('sidebar-filters');
+            
+            // Hide Detail, Show Filters
+            detailPanel.classList.add('hidden');
+            filtersPanel.classList.remove('hidden');
+        }
+
+        // Legend
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'legend');
+            div.id = 'map-legend';
+            div.innerHTML += '<h4 class="font-bold mb-2">Tingkat Kesejahteraan (Desil)</h4>';
+            div.innerHTML += '<div><i style="background: red"></i> Desil 1 (Sangat Miskin)</div>';
+            div.innerHTML += '<div><i style="background: orange"></i> Desil 2 (Miskin)</div>';
+            div.innerHTML += '<div><i style="background: yellow"></i> Desil 3 (Hampir Miskin)</div>';
+            div.innerHTML += '<div><i style="background: green"></i> Desil 4+ (Mampu)</div>';
+            div.innerHTML += '<div><i style="background: blue"></i> Tidak Ada Data</div>';
+            div.innerHTML += '<div class="mt-2 text-xs text-gray-500">Garis Biru: Batas Wilayah</div>';
+            return div;
+        };
+        legend.addTo(map);
+
+        // Fetch Boundary
+        fetch('boundary.geojson')
+            .then(response => response.json())
+            .then(data => {
+                const boundaryLayer = L.geoJSON(data, {
+                    style: {
+                        color: "#3b82f6", // Blue-500
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.1
+                    }
+                }).addTo(map);
+                
+                // Zoom to boundary
+                map.fitBounds(boundaryLayer.getBounds());
+            })
+            .catch(err => console.error("Error loading boundary:", err));
+
+        // Tab Switching Logic
+        function switchTab(tab) {
+            const tabMap = document.getElementById('tab-map');
+            const tabAnalysis = document.getElementById('tab-analysis');
+            const contentMap = document.getElementById('content-map');
+            const contentAnalysis = document.getElementById('content-analysis');
+            const legendDiv = document.getElementById('map-legend');
+
+            if (tab === 'map') {
+                tabMap.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                tabMap.classList.remove('text-gray-500');
+                tabAnalysis.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                tabAnalysis.classList.add('text-gray-500');
+                
+                contentMap.classList.remove('hidden');
+                contentAnalysis.classList.add('hidden');
+                
+                if (legendDiv) legendDiv.style.display = 'block';
+                
+                // Restore Map View
+                if (heatLayer) map.removeLayer(heatLayer);
+                renderMarkers(); // Restore markers
+                
+            } else {
+                tabAnalysis.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                tabAnalysis.classList.remove('text-gray-500');
+                tabMap.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                tabMap.classList.add('text-gray-500');
+                
+                contentAnalysis.classList.remove('hidden');
+                contentMap.classList.add('hidden');
+                
+                if (legendDiv) legendDiv.style.display = 'none';
+
+                // Switch to Analysis View
+                markers.clearLayers(); // Clear markers
+                updateAnalysis();
+            }
+        }
+
+        function updateAnalysis() {
+            const mode = document.getElementById('analysis-mode').value;
+            
+            if (mode === 'heatmap') {
+                if (heatLayer) map.removeLayer(heatLayer);
+                
+                const heatPoints = allHouseholds
+                    .filter(hh => {
+                        const d = parseInt(hh.welfare_level);
+                        return !isNaN(d) && d <= 2 && hh.latitude && hh.longitude;
+                    })
+                    .map(hh => [hh.latitude, hh.longitude, 1]); // Intensity 1
+                
+                heatLayer = L.heatLayer(heatPoints, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
+            } else {
+                if (heatLayer) map.removeLayer(heatLayer);
+                // Cluster logic is already handled by Leaflet.markercluster but we want to show specifically clusters of poor people?
+                // Or just show normal clusters but focused on poverty?
+                // For simplicity, let's just show markers of Desil 1 & 2 only
+                
+                markers.clearLayers();
+                allHouseholds.forEach(hh => {
+                    const d = parseInt(hh.welfare_level);
+                    if (!isNaN(d) && d <= 2 && hh.latitude && hh.longitude) {
+                        let color = d === 1 ? 'red' : 'orange';
+                        const marker = L.marker([hh.latitude, hh.longitude], { icon: icons[color] });
+                        marker.bindPopup(`<b>${hh.head_name}</b><br>Desil ${d}`);
+                        markers.addLayer(marker);
+                    }
+                });
+                map.addLayer(markers);
+            }
+
+            renderCharts();
+        }
+
+        function renderCharts() {
+            // Data Prep
+            const dusunStats = {}; // { 'Dusun A': { 1: count, 2: count, 3: count, 4: count } }
+            const aidStats = { 'PKH': 0, 'BPNT': 0, 'BLT': 0, 'Lainnya': 0 };
+            
+            // Stats for new charts
+            const floorStats = { 1: {sum: 0, count: 0}, 2: {sum: 0, count: 0}, 3: {sum: 0, count: 0}, 4: {sum: 0, count: 0} };
+            const familyStats = { 1: {sum: 0, count: 0}, 2: {sum: 0, count: 0}, 3: {sum: 0, count: 0}, 4: {sum: 0, count: 0} };
+            const trendStats = {}; // { year: { PKH: 0, BPNT: 0 } }
+
+            allHouseholds.forEach(hh => {
+                const dusun = hh.dusun || 'Unknown';
+                let desil = parseInt(hh.welfare_level) || 0;
+                if (desil > 4) desil = 4; // Normalize 4+ to 4
+                
+                if (desil >= 1 && desil <= 4) {
+                    // Dusun Stats
+                    if (!dusunStats[dusun]) dusunStats[dusun] = { 1:0, 2:0, 3:0, 4:0 };
+                    dusunStats[dusun][desil]++;
+
+                    // Floor Stats
+                    const floorArea = parseFloat(hh.lantai_luas);
+                    if (!isNaN(floorArea) && floorArea > 0) {
+                        floorStats[desil].sum += floorArea;
+                        floorStats[desil].count++;
+                    }
+
+                    // Family Size Stats
+                    if (hh.members) {
+                        familyStats[desil].sum += hh.members.length;
+                        familyStats[desil].count++;
+                    }
+                }
+
+                // Aid Stats (Focus on Poor: Desil 1 & 2)
+                if (desil >= 1 && desil <= 2) {
+                    if (hh.members) {
+                        hh.members.forEach(m => {
+                            if (m.aid_list) {
+                                m.aid_list.forEach(aid => {
+                                    if (aid.includes('PKH')) aidStats['PKH']++;
+                                    else if (aid.includes('BPNT')) aidStats['BPNT']++;
+                                    else if (aid.includes('BLT')) aidStats['BLT']++;
+                                    else aidStats['Lainnya']++;
+                                });
+                            }
+                        });
+                    }
+                }
+
+                // Trend Stats (Parse Years)
+                const processYear = (yearStr, type) => {
+                    if (yearStr) {
+                        // Extract 4 digit year
+                        const match = yearStr.match(/\d{4}/);
+                        if (match) {
+                            const year = match[0];
+                            if (!trendStats[year]) trendStats[year] = { PKH: 0, BPNT: 0 };
+                            trendStats[year][type]++;
+                        }
+                    }
+                };
+                processYear(hh.pkh_thn, 'PKH');
+                processYear(hh.bpnt_thn, 'BPNT');
+            });
+
+            // Chart 1: Dusun Stacked Bar
+            const dusunLabels = Object.keys(dusunStats).sort();
+            const datasets = [
+                { label: 'Desil 1', data: dusunLabels.map(d => dusunStats[d][1]), backgroundColor: 'red' },
+                { label: 'Desil 2', data: dusunLabels.map(d => dusunStats[d][2]), backgroundColor: 'orange' },
+                { label: 'Desil 3', data: dusunLabels.map(d => dusunStats[d][3]), backgroundColor: 'yellow' },
+                { label: 'Desil 4+', data: dusunLabels.map(d => dusunStats[d][4]), backgroundColor: 'green' },
+            ];
+
+            if (chartDusun) chartDusun.destroy();
+            chartDusun = new Chart(document.getElementById('chart-dusun'), {
+                type: 'bar',
+                data: { labels: dusunLabels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    scales: { x: { stacked: true }, y: { stacked: true } }
+                }
+            });
+
+            // Chart 2: Aid Pie
+            if (chartAid) chartAid.destroy();
+            chartAid = new Chart(document.getElementById('chart-aid'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(aidStats),
+                    datasets: [{
+                        data: Object.values(aidStats),
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#6b7280']
+                    }]
+                },
+                options: { responsive: true }
+            });
+            // Chart 3: Floor Area
+            const desils = [1, 2, 3, 4];
+            const floorData = desils.map(d => floorStats[d].count > 0 ? (floorStats[d].sum / floorStats[d].count).toFixed(1) : 0);
+            
+            if (chartFloor) chartFloor.destroy();
+            chartFloor = new Chart(document.getElementById('chart-floor'), {
+                type: 'bar',
+                data: {
+                    labels: ['Desil 1', 'Desil 2', 'Desil 3', 'Desil 4+'],
+                    datasets: [{
+                        label: 'Rata-rata Luas Lantai (m²)',
+                        data: floorData,
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // Chart 4: Family Size
+            const familyData = desils.map(d => familyStats[d].count > 0 ? (familyStats[d].sum / familyStats[d].count).toFixed(1) : 0);
+            
+            if (chartFamily) chartFamily.destroy();
+            chartFamily = new Chart(document.getElementById('chart-family'), {
+                type: 'bar',
+                data: {
+                    labels: ['Desil 1', 'Desil 2', 'Desil 3', 'Desil 4+'],
+                    datasets: [{
+                        label: 'Rata-rata Anggota Keluarga',
+                        data: familyData,
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // Chart 5: Trend
+            const trendYears = Object.keys(trendStats).sort();
+            // Limit to last 10 years if too many
+            // const displayYears = trendYears.slice(-10);
+            
+            if (chartTrend) chartTrend.destroy();
+            chartTrend = new Chart(document.getElementById('chart-trend'), {
+                type: 'line',
+                data: {
+                    labels: trendYears,
+                    datasets: [
+                        {
+                            label: 'Penerima Baru PKH',
+                            data: trendYears.map(y => trendStats[y].PKH || 0),
+                            borderColor: '#3b82f6',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Penerima Baru BPNT',
+                            data: trendYears.map(y => trendStats[y].BPNT || 0),
+                            borderColor: '#8b5cf6',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: { responsive: true }
+            });
+        }
+    </script>
+</body>
+</html>
