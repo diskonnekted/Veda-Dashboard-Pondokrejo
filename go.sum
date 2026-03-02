@@ -1,3 +1,5 @@
+github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd h1:/DQAi5feF/aviHBeEK8mS1D/bm6gNFlUFtDkX0L7jOU=
+github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd/go.mod h1:GwtPRvP/jvUpifg23D1jSVP93pV0cSV9fWOn9sG+HEo=
 github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
 github.com/bytedance/gopkg v0.1.3/go.mod h1:576VvJ+eJgyCzdjS+c4+77QF3p7ubbtiKARP3TxducM=
 github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uSE=

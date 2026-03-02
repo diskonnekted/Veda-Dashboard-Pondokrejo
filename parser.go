@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,11 @@ type Resident struct {
 	AidList     []string `json:"aid_list"`
 	KerjaDetail string   `json:"kerja_detail"` // Kerja Detail
 	UshDetail   string   `json:"ush_detail"`   // Ush Detail
+	Age         string   `json:"age"`          // Usia
+	Education   string   `json:"education"`    // ID Ijazah
+	Income      string   `json:"income"`       // Income
+	Pregnant    string   `json:"pregnant"`     // Hamil
+	Disability  string   `json:"disability"`   // ID Difable
 }
 
 type Household struct {
@@ -32,6 +38,12 @@ type Household struct {
 	BpntThn      string     `json:"bpnt_thn"`      // Bpnt Thn
 	LantaiLuas   string     `json:"lantai_luas"`   // Lantai Luas
 	Keterangan   string     `json:"keterangan"`    // Keterangan
+	Expenditure  string     `json:"expenditure"`   // Overall Sum
+	FloorType    string     `json:"floor_type"`    // ID Lantai
+	WallType     string     `json:"wall_type"`     // ID Dinding
+	RoofType     string     `json:"roof_type"`     // ID Atap
+	WaterSource  string     `json:"water_source"`  // ID Airminum
+	Sanitation   string     `json:"sanitation"`    // ID Fasbab
 }
 
 // GeoJSON Structures
@@ -96,6 +108,78 @@ func isPointInRing(lat, lng float64, ring [][]float64) bool {
 	return inside
 }
 
+func ExtractDusun(address string) string {
+	// Normalize
+	s := strings.ToUpper(address)
+	
+	// Remove common prefixes/suffixes for hamlet
+	// PADUKUHAN, DUSUN, DSN, DK
+	rePrefix := regexp.MustCompile(`\b(PADUKUHAN|DUSUN|DSN|DK)\b`)
+	s = rePrefix.ReplaceAllString(s, " ")
+
+	// Remove RT/RW and numbers
+	// Regex for RT/RW followed by optional numbers/slash
+	re := regexp.MustCompile(`(RT|RW)\s*[\d\/\.\-]+`)
+	s = re.ReplaceAllString(s, "")
+
+	// Remove Roman Numerals (I, II, III, IV, V) - common in hamlet sections
+	reRoman := regexp.MustCompile(`\b(I|II|III|IV|V|VI|VII|VIII|IX|X)\b`)
+	s = reRoman.ReplaceAllString(s, "")
+
+	// Remove non-alphabetic chars except spaces
+	reNonAlpha := regexp.MustCompile(`[^A-Z\s]`)
+	s = reNonAlpha.ReplaceAllString(s, " ")
+
+	// Trim spaces and extra whitespace
+	s = strings.TrimSpace(s)
+	reSpace := regexp.MustCompile(`\s+`)
+	s = reSpace.ReplaceAllString(s, " ")
+
+	// Check for "DUKU" or "DUKUH" specifically as the only content or explicit word
+	if s == "DUKU" || s == "DUKUH" {
+		return "Dukuh" // Standardize to "Dukuh" as per user request
+	}
+
+	// Convert to Title Case for display
+	s = strings.Title(strings.ToLower(s))
+	
+	// Standardization / Correction Map
+	// Ngentak, Plotengan, Jlopo, Karanglo, Dukuh, Jlapan, Banjarharjo, Glagahombo, Watu Pecah
+	switch s {
+	case "Ngentak":
+		return "Ngentak"
+	case "Plotengan":
+		return "Plotengan"
+	case "Jlopo":
+		return "Jlopo"
+	case "Karanglo":
+		return "Karanglo"
+	case "Dukuh":
+		return "Dukuh"
+	case "Jlapan":
+		return "Jlapan"
+	case "Banjarharjo":
+		return "Banjarharjo"
+	case "Glagahombo", "Glagah Ombo":
+		return "Glagahombo"
+	case "Watu Pecah", "Watupecah":
+		return "Watu Pecah"
+	default:
+		// Fuzzy matching or corrections
+		if strings.Contains(s, "Glagah") { return "Glagahombo" }
+		if strings.Contains(s, "Watu") { return "Watu Pecah" }
+		if strings.Contains(s, "Banjar") { return "Banjarharjo" }
+		if strings.Contains(s, "Jlapan") { return "Jlapan" }
+		if strings.Contains(s, "Karang") { return "Karanglo" } // Be careful if other Karang exists
+		if strings.Contains(s, "Ploteng") { return "Plotengan" }
+		if strings.Contains(s, "Ngentak") { return "Ngentak" }
+		if strings.Contains(s, "Jlopo") { return "Jlopo" }
+		if strings.Contains(s, "Dukuh") { return "Dukuh" }
+	}
+
+	return "Padukuhan Lainnya"
+}
+
 func ParseExcel(filename string) ([]Household, error) {
 	f, err := excelize.OpenFile(filename)
 	if err != nil {
@@ -143,6 +227,17 @@ func ParseExcel(filename string) ([]Household, error) {
 		ColBpntThn     = 107 // Bpnt Thn
 		ColLantaiLuas  = 55  // Lantai Luas
 		ColKeterangan  = 19  // Keterangan
+		ColExpenditure = 183
+		ColFloorType   = 56
+		ColWallType    = 57
+		ColRoofType    = 58
+		ColWaterSource = 59
+		ColSanitation  = 71
+		ColAge         = 260
+		ColEducation   = 247
+		ColMemIncome   = 256
+		ColPregnant    = 242
+		ColDisability  = 249
 	)
 
 	// Load Boundary
@@ -224,16 +319,8 @@ func ParseExcel(filename string) ([]Household, error) {
 				welfare = row[ColIDDesil]
 			}
 
-			dusunCode := ""
-			if len(row) > ColDusun {
-				dusunCode = row[ColDusun]
-			}
-			
-			// Map Dusun Code to Name (This is a guess, but better than nothing. User can correct later)
-			// Based on sample: 1 might be Ngentak. 
-			// We can also try to parse from Address if needed, but let's use the Code for grouping.
-			// Or we can just pass the code. Let's pass the code for now and label it 'Padukuhan X'.
-			// Ideally we would have a mapping table.
+			// Map Dusun Code to Name using Extraction
+			dusunName := ExtractDusun(address)
 			
 			// Get Household specific fields (Assuming these are consistent for the head or we take the first non-empty)
 			pkhThn := ""
@@ -253,11 +340,19 @@ func ParseExcel(filename string) ([]Household, error) {
 				keterangan = row[ColKeterangan]
 			}
 
+			// Helper for extra fields
+			getVal := func(idx int) string {
+				if len(row) > idx {
+					return row[idx]
+				}
+				return ""
+			}
+
 			hh = &Household{
 				NoKK:         noKK,
 				HeadName:     headName,
 				Address:      address,
-				Dusun:        dusunCode,
+				Dusun:        dusunName, // Use Extracted Name
 				Latitude:     lat,
 				Longitude:    lng,
 				WelfareLevel: welfare,
@@ -265,6 +360,12 @@ func ParseExcel(filename string) ([]Household, error) {
 				BpntThn:      bpntThn,
 				LantaiLuas:   lantaiLuas,
 				Keterangan:   keterangan,
+				Expenditure:  getVal(ColExpenditure),
+				FloorType:    getVal(ColFloorType),
+				WallType:     getVal(ColWallType),
+				RoofType:     getVal(ColRoofType),
+				WaterSource:  getVal(ColWaterSource),
+				Sanitation:   getVal(ColSanitation),
 				Members:      []Resident{},
 			}
 			householdsMap[noKK] = hh
@@ -319,12 +420,24 @@ func ParseExcel(filename string) ([]Household, error) {
 		checkAid(ColSosPip, "PIP")
 		checkAid(ColSosJamket, "Jamkes")
 
+		getMVal := func(idx int) string {
+			if len(row) > idx {
+				return row[idx]
+			}
+			return ""
+		}
+
 		member := Resident{
 			Name:        name,
 			Nik:         nik,
 			AidList:     aids,
 			UshDetail:   ushDetail,
 			KerjaDetail: kerjaDetail,
+			Age:         getMVal(ColAge),
+			Education:   getMVal(ColEducation),
+			Income:      getMVal(ColMemIncome),
+			Pregnant:    getMVal(ColPregnant),
+			Disability:  getMVal(ColDisability),
 		}
 		
 		hh.Members = append(hh.Members, member)
