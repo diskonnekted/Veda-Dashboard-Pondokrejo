@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekomendasi Analitik - Kalurahan Pondokrejo</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .page-break { page-break-before: always; }
+        }
+        .markdown-body h1 { @apply text-2xl font-bold mt-6 mb-4 border-b pb-2; }
+        .markdown-body h2 { @apply text-xl font-bold mt-5 mb-3 text-blue-800; }
+        .markdown-body h3 { @apply text-lg font-semibold mt-4 mb-2 text-gray-800; }
+        .markdown-body h4 { @apply text-base font-semibold mt-3 mb-1 text-gray-700; }
+        .markdown-body p { @apply mb-3 text-justify leading-relaxed text-gray-700; }
+        .markdown-body ul { @apply list-disc list-inside mb-4 ml-4; }
+        .markdown-body ol { @apply list-decimal list-inside mb-4 ml-4; }
+        .markdown-body li { @apply mb-1; }
+        .markdown-body table { @apply w-full border-collapse border border-gray-300 mb-4 text-sm; }
+        .markdown-body th { @apply bg-gray-100 border border-gray-300 px-3 py-2 text-left font-semibold; }
+        .markdown-body td { @apply border border-gray-300 px-3 py-2; }
+        .markdown-body blockquote { @apply border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4; }
+        .markdown-body hr { @apply my-6 border-gray-300; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800 font-sans">
+
+    <!-- Navbar / Header (No Print) -->
+    <div class="no-print bg-blue-900 text-white shadow-md p-4 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center">
+                <img src="logo.png" alt="Logo" class="h-10 w-auto mr-3 bg-white rounded p-1">
+                <div>
+                    <h1 class="text-lg font-bold">Analisis Wilayah Pondokrejo</h1>
+                    <p class="text-xs opacity-80">Laporan Resmi & Rekomendasi Strategis</p>
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="window.print()" class="bg-white text-blue-900 hover:bg-gray-100 font-bold py-2 px-4 rounded shadow transition flex items-center">
+                    <i class="fa fa-print mr-2"></i> Cetak / Simpan PDF
+                </button>
+                <button onclick="window.close()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-5xl mx-auto bg-white shadow-xl my-8 p-12 min-h-screen">
+        
+        <!-- Header Laporan -->
+        <div class="text-center mb-10 border-b-2 border-double border-black pb-6">
+            <div class="flex justify-center items-center mb-4">
+                <img src="logo.png" alt="Logo" class="h-24 w-auto">
+            </div>
+            <h1 class="text-3xl font-serif font-bold uppercase tracking-wider mb-2">Pemerintah Kalurahan Pondokrejo</h1>
+            <h2 class="text-xl font-serif font-semibold">Laporan Analisis Data Kependudukan & Wilayah</h2>
+            <p class="text-sm mt-2">Kapanewon Tempel, Kabupaten Sleman, Daerah Istimewa Yogyakarta</p>
+        </div>
+
+        <!-- Section 1: Rekomendasi -->
+        <div id="rekomendasi" class="markdown-body mb-12">
+            <!-- Content Injected via JS -->
+        </div>
+
+        <!-- Veda Logo Separator -->
+        <div class="flex justify-center my-8 opacity-50">
+            <img src="veda-logo.png" alt="Veda Smart System" class="h-12 w-auto grayscale">
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- Section 2: Action Plan -->
+        <div id="action-plan" class="markdown-body mb-12">
+            <!-- Content Injected via JS -->
+        </div>
+
+        <!-- Veda Logo Separator -->
+        <div class="flex justify-center my-8 opacity-50">
+            <img src="veda-logo.png" alt="Veda Smart System" class="h-12 w-auto grayscale">
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- Section 3: GIS Desa -->
+        <div id="gis-desa" class="markdown-body">
+            <!-- Content Injected via JS -->
+        </div>
+
+        <!-- Footer Laporan -->
+        <div class="mt-16 pt-8 border-t border-gray-400 text-center text-sm text-gray-500">
+            <p>Dokumen ini digenerate secara otomatis oleh Sistem Informasi Geografis (SIG) Kalurahan Pondokrejo.</p>
+            <p>Tanggal Cetak: <span id="print-date"></span></p>
+        </div>
+    </div>
+
+    <!-- Hidden Data Containers -->
+    <textarea id="data-rekomendasi" class="hidden">{{ .Rekomendasi }}</textarea>
+    <textarea id="data-action-plan" class="hidden">{{ .ActionPlan }}</textarea>
+    <textarea id="data-gis-desa" class="hidden">{{ .GISDesa }}</textarea>
+
+    <script>
+        // Set Date
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('print-date').innerText = new Date().toLocaleDateString('id-ID', options);
+
+        // Render Markdown
+        function render(id, sourceId) {
+            const raw = document.getElementById(sourceId).value;
+            document.getElementById(id).innerHTML = marked.parse(raw);
+        }
+
+        render('rekomendasi', 'data-rekomendasi');
+        render('action-plan', 'data-action-plan');
+        render('gis-desa', 'data-gis-desa');
+    </script>
+</body>
+</html>

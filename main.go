@@ -28,9 +28,14 @@ func main() {
 	}
 
 	// Parse Excel Data
-	households, err := ParseExcel("1 KK_ART Pondokrejo.xlsx")
+	households, err := ParseExcel("KK_Data_Final_Readable.xlsx")
 	if err != nil {
 		log.Fatalf("Error parsing excel: %v", err)
+	}
+
+	editorStore := NewEditorStore("editor_state.json")
+	if err := editorStore.Load(); err != nil {
+		log.Fatalf("Error loading editor state: %v", err)
 	}
 
 	// Generate Static Files Mode
@@ -77,52 +82,107 @@ func main() {
 		c.HTML(http.StatusOK, "login.html", nil)
 	})
 
+	r.GET("/editor", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "editor.html", nil)
+	})
+
+	r.GET("/editor/layers", func(c *gin.Context) {
+		c.JSON(http.StatusOK, editorStore.GeoLayersSnapshot())
+	})
+
+	r.GET("/editor/layers/:name", func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.Data(http.StatusOK, "application/json", []byte(`{"type":"FeatureCollection","features":[]}`))
+			return
+		}
+		if raw, ok := editorStore.GeoLayer(name); ok {
+			c.Data(http.StatusOK, "application/json", raw)
+			return
+		}
+		c.Data(http.StatusOK, "application/json", []byte(`{"type":"FeatureCollection","features":[]}`))
+	})
+
 	// Serve residents.json dynamically (matching static filename)
 	r.GET("/residents.json", func(c *gin.Context) {
-		c.JSON(http.StatusOK, households)
+		c.JSON(http.StatusOK, editorStore.Apply(households))
+	})
+
+	r.POST("/editor/save", func(c *gin.Context) {
+		var req EditorSaveRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"ok": false, "error": err.Error()})
+			return
+		}
+		if err := editorStore.UpdateAndSave(req); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"ok": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
 	// Serve boundary.geojson (matching static filename)
 	r.StaticFile("/boundary.geojson", "PONDOKREJO.geojson")
 
-	// Serve clipped geographic layers (generated via -clip-geojson)
-	r.StaticFile("/layers/pemukiman-area.geojson", "pemukiman-area-pondokrejo.geojson")
-	r.StaticFile("/layers/pemukiman-area-pondokrejo.geojson", "pemukiman-area-pondokrejo.geojson")
-	r.StaticFile("/layers/sungai-line-pondokrejo.geojson", "sungai-line-pondokrejo.geojson")
-	r.StaticFile("/layers/sawah-area.geojson", "sawah-area.json")
-	r.StaticFile("/layers/bangunan-point-pondokrejo.geojson", "bangunan-point-pondokrejo.json")
-	r.StaticFile("/layers/jalan-line-pondokrejo.geojson", "jalan-line-pondokrejo.json")
-	r.StaticFile("/layers/kontur-line-pondokrejo.geojson", "kontur-line-pondokrejo.json")
-	r.StaticFile("/layers/irigasi-line-pondokrejo.geojson", "irigasi-line-pondokrejo.geojson")
-	r.StaticFile("/layers/pendidikan-point-pondokrejo.geojson", "pendidikan-point-pondokrejo.geojson")
-	r.StaticFile("/layers/toponimi-point-pondokrejo.geojson", "toponimi-point-pondokrejo.geojson")
-	r.StaticFile("/layers/tonggak-km-point-pondokrejo.geojson", "tonggak-km-point-pondokrejo.geojson")
-	r.StaticFile("/layers/pertambangan-point-pondokrejo.geojson", "pertambangan-point-pondokrejo.geojson")
-
-	// New layers extracted from ArcGIS
-	r.StaticFile("/layers/waste_banks.geojson", "waste_banks.geojson")
-	r.StaticFile("/layers/tps_locations.geojson", "tps_locations.geojson")
-	r.StaticFile("/layers/waste_routes.geojson", "waste_routes.geojson")
-	r.StaticFile("/layers/district_boundary.geojson", "district_boundary.geojson")
-
-	// New layers extracted from ArcGIS (Disaster Mitigation)
-	r.StaticFile("/layers/krb_1.geojson", "krb_1.geojson")
-	r.StaticFile("/layers/krb_2.geojson", "krb_2.geojson")
-	r.StaticFile("/layers/krb_3.geojson", "krb_3.geojson")
-	r.StaticFile("/layers/merapi_distance.geojson", "merapi_distance.geojson")
-	r.StaticFile("/layers/evacuation_route.geojson", "evacuation_route.geojson")
-	r.StaticFile("/layers/ews_location.geojson", "ews_location.geojson")
-	r.StaticFile("/layers/barracks.geojson", "barracks.geojson")
-	r.StaticFile("/layers/assembly_points.geojson", "assembly_points.geojson")
+	// Serve Layers (GeoJSON) from 'layers' directory
+	// This replaces all individual r.StaticFile calls for layers
+	// Ensure the 'layers' directory exists in the root
+	r.Static("/layers", "./layers")
 
 	// Serve Images
 	r.StaticFile("/logo.png", "./logo.png")
 	r.StaticFile("/veda-logo.png", "./veda-logo.png")
 	r.StaticFile("/clasnet-logo.png", "./clasnet-logo.png")
+	r.StaticFile("/login.jpg", "./login.jpg")
+
+	// Recommendations Page
+	r.GET("/recommendations", func(c *gin.Context) {
+		rek, err1 := os.ReadFile("rekomendasi-hasil-analitik.md")
+		if err1 != nil {
+			rek = []byte("# Error loading recommendation file")
+		}
+
+		act, err2 := os.ReadFile("action-plan.md")
+		if err2 != nil {
+			act = []byte("# Error loading action plan file")
+		}
+
+		gis, err3 := os.ReadFile("gis-desa.md")
+		if err3 != nil {
+			gis = []byte("# Error loading GIS file")
+		}
+
+		c.HTML(http.StatusOK, "recommendations.html", gin.H{
+			"Rekomendasi": string(rek),
+			"ActionPlan":  string(act),
+			"GISDesa":     string(gis),
+		})
+	})
+
+	// Analytics Dashboard Page
+	r.GET("/analytics", func(c *gin.Context) {
+		// Calculate on the fly (or cache it)
+		data := CalculateAnalytics(households)
+
+		// Convert to JSON for injection
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error processing data")
+			return
+		}
+
+		c.HTML(http.StatusOK, "analytics.html", gin.H{
+			"AnalyticsData": string(jsonData),
+		})
+	})
 
 	// Start server
-	log.Println("Server starting on :8080")
-	if err := r.Run(":8080"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("Server starting on :" + port)
+	if err := r.Run(":" + port); err != nil {
 		log.Fatal(err)
 	}
 }
