@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Perlindungan Sosial — VEDA Pondokrejo</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-card { background: linear-gradient(135deg, #1e3a5f 0%, #1e5fa0 100%); }
+        .gradient-green { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); }
+        .gradient-orange { background: linear-gradient(135deg, #7c2d12 0%, #c2410c 100%); }
+        .gradient-purple { background: linear-gradient(135deg, #3b0764 0%, #6b21a8 100%); }
+        .gradient-teal  { background: linear-gradient(135deg, #164e63 0%, #0891b2 100%); }
+        .gradient-red   { background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%); }
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+        .coverage-bar { height: 8px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
+        .coverage-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="no-print bg-gradient-to-r from-blue-900 to-indigo-900 text-white shadow-xl p-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="logo.png" alt="Logo" class="h-10 w-auto bg-white rounded-lg p-1">
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Dashboard Perlindungan Sosial</h1>
+                    <p class="text-xs text-blue-200">Kalurahan Pondokrejo · Data Terverifikasi</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/" class="text-white/80 hover:text-white text-sm transition flex items-center gap-1">
+                    <i class="fa fa-map"></i> <span class="hidden sm:inline">Peta</span>
+                </a>
+                <a href="/analytics" class="text-white/80 hover:text-white text-sm transition flex items-center gap-1">
+                    <i class="fa fa-chart-bar"></i> <span class="hidden sm:inline">Analitik</span>
+                </a>
+                <button onclick="window.print()" class="bg-white/20 hover:bg-white/30 text-white text-sm py-2 px-3 rounded-lg transition flex items-center gap-2">
+                    <i class="fa fa-print"></i> Cetak
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+
+        <!-- Page Header -->
+        <div class="text-center">
+            <h2 class="text-3xl font-extrabold text-gray-900">Monitoring Program Perlindungan Sosial</h2>
+            <p class="text-gray-500 mt-2 text-sm">Rekapitulasi penerima manfaat per program dan per padukuhan di Kalurahan Pondokrejo</p>
+        </div>
+
+        <!-- ===== STAT CARDS BARIS 1: PROGRAM UTAMA ===== -->
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-7 bg-blue-600 rounded"></div>
+                <h3 class="text-xl font-bold text-gray-800">Program Utama (Kementerian Sosial)</h3>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+                <!-- BPNT -->
+                <div class="stat-card gradient-card text-white rounded-2xl p-5 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-widest text-blue-200">BPNT / Sembako</p>
+                            <h3 class="text-4xl font-extrabold mt-1" id="val-bpnt">—</h3>
+                            <p class="text-xs mt-1 text-blue-200">Keluarga Penerima</p>
+                        </div>
+                        <div class="bg-white/20 p-3 rounded-xl"><i class="fa fa-shopping-basket text-2xl"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="coverage-bar"><div class="coverage-fill bg-blue-300" id="bar-bpnt" style="width:0%"></div></div>
+                        <p class="text-xs text-blue-200 mt-1"><span id="pct-bpnt">0</span>% dari total KK</p>
+                    </div>
+                </div>
+
+                <!-- PKH -->
+                <div class="stat-card gradient-green text-white rounded-2xl p-5 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-widest text-green-200">PKH</p>
+                            <h3 class="text-4xl font-extrabold mt-1" id="val-pkh">—</h3>
+                            <p class="text-xs mt-1 text-green-200">Keluarga Penerima</p>
+                        </div>
+                        <div class="bg-white/20 p-3 rounded-xl"><i class="fa fa-hand-holding-heart text-2xl"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="coverage-bar"><div class="coverage-fill bg-green-300" id="bar-pkh" style="width:0%"></div></div>
+                        <p class="text-xs text-green-200 mt-1"><span id="pct-pkh">0</span>% dari total KK</p>
+                    </div>
+                </div>
+
+                <!-- BLT -->
+                <div class="stat-card gradient-orange text-white rounded-2xl p-5 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-widest text-orange-200">BLT</p>
+                            <h3 class="text-4xl font-extrabold mt-1" id="val-blt">—</h3>
+                            <p class="text-xs mt-1 text-orange-200">Keluarga Penerima</p>
+                        </div>
+                        <div class="bg-white/20 p-3 rounded-xl"><i class="fa fa-money-bill-wave text-2xl"></i></div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="coverage-bar"><div class="coverage-fill bg-orange-300" id="bar-blt" style="width:0%"></div></div>
+                        <p class="text-xs text-orange-200 mt-1"><span id="pct-blt">0</span>% dari total KK</p>
+                    </div>
+                </div>
+
+                <!-- Miskin Ekstrem -->
+                <div class="stat-card gradient-red text-white rounded-2xl p-5 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-widest text-red-200">Miskin Ekstrem</p>
+                            <h3 class="text-4xl font-extrabold mt-1" id="val-ekstrem">—</h3>
+                            <p class="text-xs mt-1 text-red-200">Keluarga Prioritas</p>
+                        </div>
+                        <div class="bg-white/20 p-3 rounded-xl"><i class="fa fa-exclamation-triangle text-2xl"></i></div>
+                    </div>
+                    <div class="mt-3 text-xs text-red-200">Butuh intervensi segera</div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===== STAT CARDS BARIS 2: PROGRAM LAINNYA ===== -->
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-7 bg-teal-600 rounded"></div>
+                <h3 class="text-xl font-bold text-gray-800">Program Subsidi & Dukungan Lainnya</h3>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl p-5 shadow-md stat-card flex items-center gap-4">
+                    <div class="bg-yellow-100 p-3 rounded-xl"><i class="fa fa-bolt text-yellow-600 text-xl"></i></div>
+                    <div>
+                        <h4 class="text-2xl font-bold text-gray-800" id="val-listrik">—</h4>
+                        <p class="text-xs text-gray-500 font-semibold">Subsidi Listrik</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-md stat-card flex items-center gap-4">
+                    <div class="bg-orange-100 p-3 rounded-xl"><i class="fa fa-fire-burner text-orange-600 text-xl"></i></div>
+                    <div>
+                        <h4 class="text-2xl font-bold text-gray-800" id="val-lpg">—</h4>
+                        <p class="text-xs text-gray-500 font-semibold">Subsidi LPG</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-md stat-card flex items-center gap-4">
+                    <div class="bg-green-100 p-3 rounded-xl"><i class="fa fa-mosque text-green-600 text-xl"></i></div>
+                    <div>
+                        <h4 class="text-2xl font-bold text-gray-800" id="val-baznas">—</h4>
+                        <p class="text-xs text-gray-500 font-semibold">Bantuan BAZNAS</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-md stat-card flex items-center gap-4">
+                    <div class="bg-pink-100 p-3 rounded-xl"><i class="fa fa-baby text-pink-600 text-xl"></i></div>
+                    <div>
+                        <h4 class="text-2xl font-bold text-gray-800" id="val-stun">—</h4>
+                        <p class="text-xs text-gray-500 font-semibold">Risiko Stunting</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== ANALISIS MULTI-PROGRAM ===== -->
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-7 bg-purple-600 rounded"></div>
+                <h3 class="text-xl font-bold text-gray-800">Analisis Tumpang Tindih Program (Overlap)</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-2xl p-6 shadow-md stat-card text-center">
+                    <div class="text-4xl font-extrabold text-purple-700" id="val-tiga">—</div>
+                    <p class="text-sm font-semibold text-gray-600 mt-1">Penerima 3+ Program</p>
+                    <p class="text-xs text-gray-400 mt-1">PKH + BPNT + BLT sekaligus</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-md stat-card text-center">
+                    <div class="text-4xl font-extrabold text-indigo-600" id="val-dua">—</div>
+                    <p class="text-sm font-semibold text-gray-600 mt-1">Penerima 2 Program</p>
+                    <p class="text-xs text-gray-400 mt-1">Kombinasi dua program</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-md stat-card text-center">
+                    <div class="text-4xl font-extrabold text-gray-500" id="val-zero">—</div>
+                    <p class="text-sm font-semibold text-gray-600 mt-1">Belum Terdata</p>
+                    <p class="text-xs text-gray-400 mt-1">Tidak menerima program apapun</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== GRAFIK PER DUSUN ===== -->
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-7 bg-green-600 rounded"></div>
+                <h3 class="text-xl font-bold text-gray-800">Distribusi Per Padukuhan</h3>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- Chart BPNT per Dusun -->
+                <div class="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>
+                        Penerima BPNT per Padukuhan
+                    </h4>
+                    <div class="h-64"><canvas id="chartBpntDusun"></canvas></div>
+                </div>
+
+                <!-- Chart PKH per Dusun -->
+                <div class="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+                        Penerima PKH per Padukuhan
+                    </h4>
+                    <div class="h-64"><canvas id="chartPkhDusun"></canvas></div>
+                </div>
+
+                <!-- Chart Ekstrem per Dusun -->
+                <div class="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 bg-red-500 rounded-full"></span>
+                        Sebaran Miskin Ekstrem per Padukuhan
+                    </h4>
+                    <div class="h-64"><canvas id="chartEkstremDusun"></canvas></div>
+                </div>
+
+                <!-- Pie: Komposisi Bansos -->
+                <div class="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 bg-purple-500 rounded-full"></span>
+                        Komposisi Program Bansos
+                    </h4>
+                    <div class="flex items-center gap-4">
+                        <div class="h-48 w-48 flex-shrink-0"><canvas id="chartBansosPie"></canvas></div>
+                        <div id="pieLegend" class="text-xs text-gray-600 space-y-1 flex-1"></div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <div class="flex justify-center py-6 opacity-40">
+            <img src="veda-logo.png" alt="VEDA" class="h-10 w-auto grayscale">
+        </div>
+        <div class="text-center text-xs text-gray-400 pb-8">
+            Dicetak pada: <span id="print-date"></span> · Veda Dashboard — Kalurahan Pondokrejo
+        </div>
+
+    </div><!-- /container -->
+
+    <script>
+        const D = JSON.parse('{{ .BansosData }}');
+        document.getElementById('print-date').innerText = new Date().toLocaleDateString('id-ID', {year:'numeric',month:'long',day:'numeric'});
+
+        // Populate stat cards
+        document.getElementById('val-bpnt').innerText    = D.total_bpnt.toLocaleString('id-ID');
+        document.getElementById('val-pkh').innerText     = D.total_pkh.toLocaleString('id-ID');
+        document.getElementById('val-blt').innerText     = D.total_blt.toLocaleString('id-ID');
+        document.getElementById('val-ekstrem').innerText = D.total_ekstrem.toLocaleString('id-ID');
+        document.getElementById('val-listrik').innerText = D.total_listrik.toLocaleString('id-ID');
+        document.getElementById('val-lpg').innerText     = D.total_lpg.toLocaleString('id-ID');
+        document.getElementById('val-baznas').innerText  = D.total_baznas.toLocaleString('id-ID');
+        document.getElementById('val-stun').innerText    = D.total_stun.toLocaleString('id-ID');
+        document.getElementById('val-tiga').innerText    = D.penerima_tiga.toLocaleString('id-ID');
+        document.getElementById('val-dua').innerText     = D.penerima_dua.toLocaleString('id-ID');
+        document.getElementById('val-zero').innerText    = D.penerima_zero.toLocaleString('id-ID');
+
+        // Coverage bars
+        const bpntPct = D.bpnt_coverage.toFixed(1);
+        const pkhPct  = D.pkh_coverage.toFixed(1);
+        const bltPct  = D.blt_coverage.toFixed(1);
+        document.getElementById('pct-bpnt').innerText = bpntPct;
+        document.getElementById('pct-pkh').innerText  = pkhPct;
+        document.getElementById('pct-blt').innerText  = bltPct;
+        setTimeout(() => {
+            document.getElementById('bar-bpnt').style.width = Math.min(bpntPct, 100) + '%';
+            document.getElementById('bar-pkh').style.width  = Math.min(pkhPct, 100) + '%';
+            document.getElementById('bar-blt').style.width  = Math.min(bltPct, 100) + '%';
+        }, 300);
+
+        // Helper: build bar chart per dusun
+        const DUSUN = D.dusun_names || [];
+        function barChart(id, dataMap, color) {
+            const vals = DUSUN.map(d => dataMap[d] || 0);
+            new Chart(document.getElementById(id), {
+                type: 'bar',
+                data: {
+                    labels: DUSUN,
+                    datasets: [{ data: vals, backgroundColor: color, borderRadius: 6 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { font: { size: 10 } } },
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        barChart('chartBpntDusun',    D.dusun_bpnt,    'rgba(59,130,246,0.75)');
+        barChart('chartPkhDusun',     D.dusun_pkh,     'rgba(16,185,129,0.75)');
+        barChart('chartEkstremDusun', D.dusun_ekstrem, 'rgba(239,68,68,0.75)');
+
+        // Pie Chart: Program Overview
+        const pieLabels = ['BPNT', 'PKH', 'BLT', 'Subsidi Listrik', 'LPG', 'BAZNAS'];
+        const pieVals   = [D.total_bpnt, D.total_pkh, D.total_blt, D.total_listrik, D.total_lpg, D.total_baznas];
+        const pieColors = ['#3b82f6','#10b981','#f97316','#eab308','#f59e0b','#06b6d4'];
+        new Chart(document.getElementById('chartBansosPie'), {
+            type: 'doughnut',
+            data: { labels: pieLabels, datasets: [{ data: pieVals, backgroundColor: pieColors, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+        // Custom legend
+        const legEl = document.getElementById('pieLegend');
+        pieLabels.forEach((l, i) => {
+            legEl.innerHTML += `<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${pieColors[i]}"></span><span>${l}: <b>${pieVals[i]}</b></span></div>`;
+        });
+    </script>
+</body>
+</html>

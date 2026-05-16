@@ -93,6 +93,12 @@
             <a href="/editor" class="bg-slate-100 hover:bg-white text-blue-800 font-bold py-1 px-3 rounded text-sm shadow transition">
                 <i class="fa fa-pen-to-square mr-1"></i> Editor
             </a>
+            <a href="/bansos" target="_blank" class="bg-green-500 hover:bg-green-400 text-white font-bold py-1 px-3 rounded text-sm shadow transition">
+                <i class="fa fa-hand-holding-heart mr-1"></i> Bansos
+            </a>
+            <a href="/analytics" target="_blank" class="bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1 px-3 rounded text-sm shadow transition">
+                <i class="fa fa-chart-bar mr-1"></i> Analitik
+            </a>
             <a href="/login" onclick="sessionStorage.removeItem('isLoggedIn');" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm shadow transition">
                 <i class="fa fa-sign-out-alt mr-1"></i> Logout
             </a>
@@ -576,11 +582,14 @@
                             </div>
                             
                             <!-- Link to Advanced Analytics -->
-                            <div class="mt-6 border-t pt-4">
-                                <a href="/analytics" target="_blank" class="block w-full py-2 px-3 bg-indigo-50 text-indigo-700 rounded border border-indigo-200 hover:bg-indigo-100 text-sm font-semibold text-center transition">
-                                    <i class="fa fa-chart-pie mr-2"></i> Buka Dashboard Analitik Lengkap
+                            <div class="mt-4 border-t pt-4 space-y-2">
+                                <a href="/analytics" target="_blank" class="flex items-center w-full py-2 px-3 bg-indigo-50 text-indigo-700 rounded border border-indigo-200 hover:bg-indigo-100 text-sm font-semibold transition">
+                                    <i class="fa fa-chart-pie mr-2"></i> Dashboard Analitik Lengkap
                                 </a>
-                                <p class="text-xs text-center text-gray-400 mt-1">Lihat grafik infrastruktur & kerentanan</p>
+                                <a href="/bansos" target="_blank" class="flex items-center w-full py-2 px-3 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100 text-sm font-semibold transition">
+                                    <i class="fa fa-hand-holding-heart mr-2"></i> Dashboard Perlindungan Sosial
+                                </a>
+                                <p class="text-xs text-center text-gray-400">BPNT · PKH · BLT · Stunting · Ekstrem</p>
                             </div>
                         </div>
                     </div>
@@ -623,25 +632,33 @@
         L.control.zoom({ position: 'topright' }).addTo(map);
 
         // Load Boundary Immediately
-        fetch('/layers/boundary.geojson').then(res => {
-            if(!res.ok) return fetch('/layers/PONDOKREJO.geojson');
-            return res;
-        })
-        .then(res => res.json())
-        .then(data => {
-            const boundary = L.geoJSON(data, {
-                style: {
-                    color: '#3b82f6', // Blue Border
-                    weight: 2,
-                    fillColor: '#3b82f6', // Blue Fill
-                    fillOpacity: 0.1      // Thin/Light Transparency
-                }
-            }).addTo(map);
-            
-            // Fit map to boundary
-            map.fitBounds(boundary.getBounds(), { padding: [20, 20] });
-        })
-        .catch(err => console.log("Boundary layer not found (optional)", err));
+        async function loadBoundary() {
+            try {
+                // Try layers directory first
+                let res = await fetch('/layers/boundary.geojson');
+                if (!res.ok) res = await fetch('/boundary.geojson');
+                if (!res.ok) res = await fetch('/layers/PONDOKREJO.geojson');
+                
+                if (!res.ok) throw new Error('Boundary file not found');
+                
+                const data = await res.json();
+                const boundary = L.geoJSON(data, {
+                    style: {
+                        color: '#3b82f6', // Blue Border
+                        weight: 2,
+                        fillColor: '#3b82f6', // Blue Fill
+                        fillOpacity: 0.1      // Thin/Light Transparency
+                    }
+                }).addTo(map);
+                
+                // Fit map to boundary
+                map.fitBounds(boundary.getBounds(), { padding: [20, 20] });
+                window.boundaryLayer = boundary;
+            } catch (err) {
+                console.log("Boundary layer loading failed:", err);
+            }
+        }
+        loadBoundary();
 
         function openRecommendations(e) {
             e.preventDefault();
@@ -859,20 +876,13 @@
         async function ensurePemukimanLayerData() {
             if (pemukimanLayerData) return pemukimanLayerData;
             try {
-                // Try standard name first, then fallback to -pondokrejo
                 const res = await fetch('/layers/pemukiman-area.geojson'); 
-                if (!res.ok) {
-                     // Try fallback name if rename didn't happen as expected or was inconsistent
-                     const res2 = await fetch('/layers/pemukiman-area-pondokrejo.geojson');
-                     if (!res2.ok) throw new Error('Gagal memuat layer pemukiman');
-                     pemukimanLayerData = await res2.json();
-                } else {
-                    pemukimanLayerData = await res.json();
-                }
+                if (!res.ok) throw new Error('Gagal memuat layer pemukiman');
+                pemukimanLayerData = await res.json();
                 return pemukimanLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data pemukiman (pemukiman-area.geojson). Pastikan file tersedia di folder layers.');
+                alert('Gagal memuat data pemukiman. Pastikan file pemukiman-area.geojson tersedia di folder layers.');
                 throw e;
             }
         }
@@ -1067,20 +1077,13 @@
         async function ensureSungaiLayerData() {
             if (sungaiLayerData) return sungaiLayerData;
             try {
-                // Try standard geojson
                 const res = await fetch('/layers/sungai-line.geojson');
-                if (!res.ok) {
-                    // Fallback
-                    const res2 = await fetch('/layers/sungai-line-pondokrejo.geojson');
-                    if (!res2.ok) throw new Error('Gagal memuat layer sungai');
-                    sungaiLayerData = await res2.json();
-                } else {
-                    sungaiLayerData = await res.json();
-                }
+                if (!res.ok) throw new Error('Gagal memuat layer sungai');
+                sungaiLayerData = await res.json();
                 return sungaiLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data sungai. Pastikan file tersedia.');
+                alert('Gagal memuat data sungai. Pastikan file sungai-line.geojson tersedia di folder layers.');
                 throw e;
             }
         }
@@ -1116,20 +1119,13 @@
         async function ensureSawahLayerData() {
             if (sawahLayerData) return sawahLayerData;
             try {
-                // Try standard geojson extension
                 const res = await fetch('/layers/sawah-area.geojson');
-                if (!res.ok) {
-                    // Fallback to .json as seen in ls output
-                    const res2 = await fetch('/layers/sawah-area.json');
-                    if (!res2.ok) throw new Error('Gagal memuat layer sawah');
-                    sawahLayerData = await res2.json();
-                } else {
-                    sawahLayerData = await res.json();
-                }
+                if (!res.ok) throw new Error('Gagal memuat layer sawah');
+                sawahLayerData = await res.json();
                 return sawahLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data sawah (sawah-area.geojson/json). Pastikan file tersedia di folder layers.');
+                alert('Gagal memuat data sawah. Pastikan file sawah-area.geojson tersedia di folder layers.');
                 throw e;
             }
         }
@@ -1170,24 +1166,13 @@
         async function ensureBangunanLayerData() {
             if (bangunanLayerData) return bangunanLayerData;
             try {
-                // Priority: standard geojson -> pondokrejo geojson -> pondokrejo json
-                const res = await fetch('/layers/bangunan-point.geojson');
-                if (!res.ok) {
-                     const res2 = await fetch('/layers/bangunan-point-pondokrejo.geojson');
-                     if (!res2.ok) {
-                         const res3 = await fetch('/layers/bangunan-point-pondokrejo.json');
-                         if (!res3.ok) throw new Error('Gagal memuat layer bangunan');
-                         bangunanLayerData = await res3.json();
-                     } else {
-                         bangunanLayerData = await res2.json();
-                     }
-                } else {
-                    bangunanLayerData = await res.json();
-                }
+                const res = await fetch('/layers/bangunan-point-pondokrejo.json');
+                if (!res.ok) throw new Error('Gagal memuat layer bangunan');
+                bangunanLayerData = await res.json();
                 return bangunanLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data bangunan. Pastikan file tersedia.');
+                alert('Gagal memuat data bangunan. Pastikan file bangunan-point-pondokrejo.json tersedia.');
                 throw e;
             }
         }
@@ -1309,24 +1294,13 @@
         async function ensureJalanLayerData() {
             if (jalanLayerData) return jalanLayerData;
             try {
-                // Priority: standard geojson -> pondokrejo geojson -> pondokrejo json
                 const res = await fetch('/layers/jalan-line.geojson');
-                if (!res.ok) {
-                     const res2 = await fetch('/layers/jalan-line-pondokrejo.geojson');
-                     if (!res2.ok) {
-                         const res3 = await fetch('/layers/jalan-line-pondokrejo.json');
-                         if (!res3.ok) throw new Error('Gagal memuat layer jalan');
-                         jalanLayerData = await res3.json();
-                     } else {
-                         jalanLayerData = await res2.json();
-                     }
-                } else {
-                    jalanLayerData = await res.json();
-                }
+                if (!res.ok) throw new Error('Gagal memuat layer jalan');
+                jalanLayerData = await res.json();
                 return jalanLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data jalan. Pastikan file tersedia.');
+                alert('Gagal memuat data jalan. Pastikan file jalan-line.geojson tersedia.');
                 throw e;
             }
         }
@@ -1365,24 +1339,13 @@
         async function ensureKonturLayerData() {
             if (konturLayerData) return konturLayerData;
             try {
-                // Priority: standard geojson -> pondokrejo geojson -> pondokrejo json
                 const res = await fetch('/layers/kontur-line.geojson');
-                if (!res.ok) {
-                     const res2 = await fetch('/layers/kontur-line-pondokrejo.geojson');
-                     if (!res2.ok) {
-                         const res3 = await fetch('/layers/kontur-line-pondokrejo.json');
-                         if (!res3.ok) throw new Error('Gagal memuat layer kontur');
-                         konturLayerData = await res3.json();
-                     } else {
-                         konturLayerData = await res2.json();
-                     }
-                } else {
-                    konturLayerData = await res.json();
-                }
+                if (!res.ok) throw new Error('Gagal memuat layer kontur');
+                konturLayerData = await res.json();
                 return konturLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data kontur. Pastikan file tersedia.');
+                alert('Gagal memuat data kontur. Pastikan file kontur-line.geojson tersedia.');
                 throw e;
             }
         }
@@ -1432,13 +1395,13 @@
         async function ensureIrigasiLayerData() {
             if (irigasiLayerData) return irigasiLayerData;
             try {
-                const res = await fetch('/layers/irigasi-line-pondokrejo.geojson');
+                const res = await fetch('/layers/irigasi-line.geojson');
                 if (!res.ok) throw new Error('Gagal memuat layer irigasi');
                 irigasiLayerData = await res.json();
                 return irigasiLayerData;
             } catch (e) {
                 console.error(e);
-                alert('Gagal memuat data irigasi. Pastikan file tersedia.');
+                alert('Gagal memuat data irigasi. Pastikan file irigasi-line.geojson tersedia.');
                 throw e;
             }
         }
@@ -1477,7 +1440,7 @@
         // Pendidikan Layer
         async function ensurePendidikanLayerData() {
             if (pendidikanLayerData) return pendidikanLayerData;
-            const res = await fetch('/layers/pendidikan-point-pondokrejo.geojson');
+            const res = await fetch('/layers/pendidikan-point.geojson');
             if (!res.ok) throw new Error('Gagal memuat layer pendidikan');
             pendidikanLayerData = await res.json();
             return pendidikanLayerData;
@@ -1511,7 +1474,7 @@
         // Toponimi Layer
         async function ensureToponimiLayerData() {
             if (toponimiLayerData) return toponimiLayerData;
-            const res = await fetch('/layers/toponimi-point-pondokrejo.geojson');
+            const res = await fetch('/layers/toponimi-point.geojson');
             if (!res.ok) throw new Error('Gagal memuat layer toponimi');
             toponimiLayerData = await res.json();
             return toponimiLayerData;
@@ -1545,7 +1508,7 @@
         // Tonggak KM Layer
         async function ensureTonggakLayerData() {
             if (tonggakLayerData) return tonggakLayerData;
-            const res = await fetch('/layers/tonggak-km-point-pondokrejo.geojson');
+            const res = await fetch('/layers/tonggak-km-point.geojson');
             if (!res.ok) throw new Error('Gagal memuat layer tonggak km');
             tonggakLayerData = await res.json();
             return tonggakLayerData;
@@ -1573,7 +1536,7 @@
         // Pertambangan Layer
         async function ensureTambangLayerData() {
             if (tambangLayerData) return tambangLayerData;
-            const res = await fetch('/layers/pertambangan-point-pondokrejo.geojson');
+            const res = await fetch('/layers/pertambangan-point.geojson');
             if (!res.ok) throw new Error('Gagal memuat layer pertambangan');
             tambangLayerData = await res.json();
             return tambangLayerData;
@@ -2714,14 +2677,12 @@
 
                         if (m.pregnant === 'Ya' || m.pregnant === '1') pregnantCount++;
                         
-                        // Stunting Risk: Low Welfare + Bad Sanitation + Toddler
-                        if ((desil === 1 || desil === 2) && age < 5) {
-                            // Check sanitation keywords
-                            if (!hh.sanitation || hh.sanitation.toUpperCase().includes('CEMPLUNG') || hh.sanitation.toUpperCase().includes('TIDAK')) {
-                                stuntingRisk++;
-                            }
-                        }
                     });
+                }
+
+                // Stunting Risk: use pre-calculated flag from parser (at household level)
+                if (hh.is_stun) {
+                    stuntingRisk++;
                 }
             });
 

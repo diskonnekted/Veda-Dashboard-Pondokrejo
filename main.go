@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// Parse Excel Data
-	households, err := ParseExcel("KK_Data_Final_Readable.xlsx")
+	households, err := ParseExcel("1 KK_ART Pondokrejo.xlsx")
 	if err != nil {
 		log.Fatalf("Error parsing excel: %v", err)
 	}
@@ -134,6 +134,7 @@ func main() {
 	r.StaticFile("/veda-logo.png", "./veda-logo.png")
 	r.StaticFile("/clasnet-logo.png", "./clasnet-logo.png")
 	r.StaticFile("/login.jpg", "./login.jpg")
+	r.StaticFile("/background.jpg", "./background.jpg")
 
 	// Recommendations Page
 	r.GET("/recommendations", func(c *gin.Context) {
@@ -174,6 +175,25 @@ func main() {
 		c.HTML(http.StatusOK, "analytics.html", gin.H{
 			"AnalyticsData": string(jsonData),
 		})
+	})
+
+	// Bansos Dashboard Page
+	r.GET("/bansos", func(c *gin.Context) {
+		data := CalculateBansos(households)
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error processing bansos data")
+			return
+		}
+		c.HTML(http.StatusOK, "bansos.html", gin.H{
+			"BansosData": string(jsonData),
+		})
+	})
+
+	// Bansos JSON API
+	r.GET("/bansos/data", func(c *gin.Context) {
+		data := CalculateBansos(households)
+		c.JSON(http.StatusOK, data)
 	})
 
 	// Start server

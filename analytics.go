@@ -2,6 +2,54 @@ package main
 
 import "strings"
 
+// Lookup: ID Kerja PBDT → Label
+var jobLabel = map[string]string{
+	"1":  "Petani/Pekebun",
+	"2":  "Nelayan",
+	"3":  "Peternak",
+	"4":  "Industri Pengolahan",
+	"5":  "Konstruksi/Bangunan",
+	"6":  "Perdagangan",
+	"7":  "Transportasi",
+	"8":  "Karyawan Swasta",
+	"9":  "TNI/Polri",
+	"10": "PNS/ASN",
+	"11": "Wiraswasta",
+	"12": "Buruh Harian Lepas",
+	"13": "Pembantu Rumah Tangga",
+	"14": "Pedagang",
+	"15": "Jasa Lainnya",
+	"16": "Karyawan BUMN/Bank",
+	"17": "Karyawan Swasta Lainnya",
+	"18": "Jasa Profesional",
+	"19": "PNS/ASN",
+	"20": "Ibu Rumah Tangga",
+	"21": "Pelajar/Mahasiswa",
+	"22": "Pensiunan",
+	"23": "Tidak Bekerja",
+	"24": "Lainnya",
+	"25": "Pekerja Jasa/Outsourcing",
+	"26": "Wiraswasta Usaha Sewa",
+}
+
+// Lookup: ID Jenjang PBDT → Label
+var eduLabel = map[string]string{
+	"1":  "Tidak/Belum Sekolah",
+	"2":  "Belum Tamat SD",
+	"3":  "Tamat SD/Sederajat",
+	"4":  "SMP/Sederajat",
+	"5":  "SMA/Sederajat",
+	"6":  "SMK/Sederajat",
+	"7":  "SD/Sederajat",
+	"8":  "SMP/MTs",
+	"9":  "SMA/MA",
+	"10": "Diploma/D3",
+	"11": "S1/D4",
+	"12": "S2",
+	"13": "S3",
+	"15": "Tidak Sekolah",
+}
+
 // AnalyticsData holds the aggregated data for the dashboard
 type AnalyticsData struct {
 	TotalHouseholds int `json:"total_households"`
@@ -21,6 +69,7 @@ type AnalyticsData struct {
 	// 3. Rentan
 	ElderlySingleCount  int `json:"elderly_single_count"`  // Lansia Tunggal
 	PoorWithToddlerCount int `json:"poor_with_toddler_count"` // Miskin + Balita
+	StuntingCount        int `json:"stunting_count"`          // Resiko Stunting
 }
 
 func CalculateAnalytics(households []Household) AnalyticsData {
@@ -39,8 +88,8 @@ func CalculateAnalytics(households []Household) AnalyticsData {
 		if hh.IncomeCategory == "" { hh.IncomeCategory = "Tidak Diketahui" }
 		data.IncomeDistribution[hh.IncomeCategory]++
 		
-		// Check Poverty Status (Desil 1 or 2)
-		isPoor := hh.WelfareLevel == "1" || hh.WelfareLevel == "2"
+		// Check Poverty Status (Desil 1, 2, or 3)
+		isPoor := hh.WelfareLevel == "1" || hh.WelfareLevel == "2" || hh.WelfareLevel == "3"
 		isMampu := hh.WelfareLevel == "4"
 
 		// New: Income Comparison (Miskin vs Mampu)
@@ -53,18 +102,26 @@ func CalculateAnalytics(households []Household) AnalyticsData {
 		}
 		
 		if isPoor {
-			// Job Profile of Head
-			job := hh.JobProfile
-			if job == "" { job = "Tidak Bekerja/Lainnya" }
+			// Job Profile of Head — translate kode numerik ke label
+			jobCode := hh.JobProfile
+			job := jobLabel[jobCode]
+			if job == "" {
+				if jobCode == "" {
+					job = "Tidak Bekerja/Lainnya"
+				} else {
+					job = "Kode " + jobCode
+				}
+			}
 			data.JobProfilePoor[job]++
-			
-			// Education of Head (Need to find head in members again or store it)
-			// Simplification: Iterate members to find head
+
+			// Education of Head — translate kode numerik ke label
 			foundHead := false
 			for _, m := range hh.Members {
-				if strings.Contains(strings.ToUpper(m.Relation), "KEPALA") {
-					edu := m.Education
-					if edu == "" { edu = "Tidak Sekolah/Belum Tamat SD" }
+				// Kepala = ID Hub Keluarga = 1
+				if strings.TrimSpace(m.Relation) == "1" {
+					eduCode := m.Education
+					edu := eduLabel[eduCode]
+					if edu == "" { edu = "Tidak Diketahui" }
 					data.EducationPoor[edu]++
 					foundHead = true
 					break
@@ -73,36 +130,33 @@ func CalculateAnalytics(households []Household) AnalyticsData {
 			if !foundHead {
 				data.EducationPoor["Tidak Diketahui"]++
 			}
-			
+
 			// 3. Rentan: Poor with Toddler
 			if hh.HasToddler {
 				data.PoorWithToddlerCount++
 			}
 		}
-		
-		// 2. Infrastructure
-		// RTLH Logic: Status Sewa/Menumpang OR (Lantai Tanah/Kayu AND Dinding Bambu/Kayu)
-		// For now, let's use the HouseStatus field we added.
-		// Assume "Milik Sendiri" is good. Others are risk.
-		isRTLH := false
-		houseStatus := strings.ToUpper(hh.HouseStatus)
-		if !strings.Contains(houseStatus, "MILIK SENDIRI") && houseStatus != "" {
-			isRTLH = true
+
+		// Stunting count (now calculated in parser, so we can just use the flag)
+		if hh.IsStun {
+			data.StuntingCount++
 		}
 		
+		// 2. Infrastructure
+		// RTLH: Parser sudah set HouseStatus="RTLH" jika dinding/atap buruk
+		isRTLH := hh.HouseStatus == "RTLH"
 		if isRTLH {
 			data.RTLHCount++
 		}
-		
+
 		if !hh.HasLatrine {
 			data.NoLatrineCount++
 		}
 		if !hh.HasCleanWater {
 			data.NoCleanWaterCount++
 		}
-		
+
 		// 3. Rentan: Elderly Single
-		// Logic: Head > 65 AND (Member Count == 1 OR Member Count == 2)
 		if hh.IsElderlyHead && len(hh.Members) <= 2 {
 			data.ElderlySingleCount++
 		}

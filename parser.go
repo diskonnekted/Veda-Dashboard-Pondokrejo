@@ -54,6 +54,19 @@ type Household struct {
 	HasCleanWater  bool   `json:"has_clean_water"` // Air Bersih (Bukan Sungai)
 	IsElderlyHead  bool   `json:"is_elderly_head"` // Kepala Keluarga > 65
 	HasToddler     bool   `json:"has_toddler"`     // Ada Balita
+
+	// Bansos Fields (Household Level)
+	IsBpnt   bool   `json:"is_bpnt"`    // Penerima BPNT/Sembako
+	BpntThnV string `json:"bpnt_thn_v"` // Tahun BPNT
+	IsPkh    bool   `json:"is_pkh"`     // Penerima PKH
+	PkhThnV  string `json:"pkh_thn_v"`  // Tahun PKH
+	IsBlt    bool   `json:"is_blt"`     // Penerima BLT
+	IsListrik bool  `json:"is_listrik"` // Subsidi Listrik
+	IsBaznas bool   `json:"is_baznas"`  // Bantuan BAZNAS
+	IsLpg    bool   `json:"is_lpg"`     // Subsidi LPG
+	IsBanpem bool   `json:"is_banpem"` // Bantuan Pemerintah lain
+	IsEkstrem bool  `json:"is_ekstrem"` // Miskin Ekstrem
+	IsStun   bool   `json:"is_stun"`    // Berisiko Stunting
 }
 
 // GeoJSON Structures
@@ -221,76 +234,74 @@ func ParseExcel(filename string) ([]Household, error) {
 		return nil, err
 	}
 
-	// Column Indices (0-based) for KK_Data_Final_Readable.xlsx
+	// Kolom index berdasarkan file '1 KK_ART Pondokrejo.xlsx'
 	const (
 		// Household Data
 		ColNoKK       = 2  // NO KK
-		ColHeadName   = 12 // Nama Kepala KK
-		ColAddress    = 11 // Alamat Dukuh
-		ColRT         = 10 // RT
-		ColRW         = 9  // RW
-		ColCoordinate = 17 // Koordinat
-		ColKeterangan = 14 // Keterangan
-		ColIDDesil    = 15 // ID Desil (Ket)
-		ColISUsulan   = 16 // IS Usulan (Ket)
-		ColISEkstrem  = 18 // IS Ekstrem (Ket)
+		ColHeadName   = 14 // Nama Kepala KK
+		ColAddress    = 12 // Alamat (Dukuh)
+		ColRT         = 11 // RT
+		ColRW         = 10 // RW
+		ColCoordinate = 44 // Koordinat (lat,lng)
+		ColKeterangan = 19 // Keterangan
+		ColIDDesil    = 38 // ID Desil
+		ColISUsulan   = 41 // IS Usulan
+		ColISEkstrem  = 51 // IS Ekstrem
 
-		ColFloorArea   = 20 // Lantai Luas
-		ColFloorType   = 21 // ID Lantai (Ket)
-		ColWallType    = 22 // ID Dinding (Ket)
-		ColRoofType    = 23 // ID Atap (Ket)
-		ColWaterSource = 24 // ID Airminum (Ket)
-		ColSanitation  = 32 // ID Fasbab (Ket) (Sanitation ownership)
+		ColFloorArea   = 55  // Lantai Luas
+		ColFloorType   = 56  // ID Lantai
+		ColWallType    = 57  // ID Dinding
+		ColRoofType    = 58  // ID Atap
+		ColWaterSource = 59  // ID Airminum
+		ColSanitation  = 71  // ID Fasbab
+		ColExpenditure = 183 // Overall Sum
+		ColBpntThn     = 107 // Bpnt Thn
+		ColPkhThn      = 110 // Pkh Thn
 
-		ColBpntThn     = 38  // Bpnt Tahun
-		ColPkhThn      = 41  // Pkh Thn
-		ColExpenditure = 100 // Overall Sum
+		// Member / ART Data
+		ColNik         = 231 // Nik
+		ColName        = 232 // Nama
+		ColRelation    = 234 // ID Hub Keluarga
+		ColGender      = 237 // ID Kelamin
+		ColAge         = 260 // Usia
+		ColEducation   = 245 // ID Jenjang
+		ColJob         = 252 // ID Kerja
+		ColJobStatus   = 253 // ID Kerja Status
+		ColKerjaDetail = 255 // Kerja Detail
+		ColIncome      = 256 // Income
+		ColUshDetail   = 268 // Ush Detail
+		ColPregnant    = 242 // Hamil
+		ColDisability  = 249 // ID Difable
 
-		// Member Data
-		ColNik         = 109 // Nik
-		ColName        = 110 // Nama
-		ColRelation    = 111 // ID Hub Keluarga (Ket)
-		ColGender      = 114 // ID Kelamin (Ket)
-		ColAge         = 137 // Usia
-		ColEducation   = 121 // ID Jenjang (Ket)
-		ColJob         = 128 // ID Kerja (Ket)
-		ColJobStatus   = 129 // ID Kerja Sttus (Ket)
-		ColKerjaDetail = 131 // Kerja Detail
-		ColIncome      = 132 // Income
-		ColUshDetail   = 142 // Ush Detail
-		ColPregnant    = 118 // Hamil
-		ColDisability  = 125 // ID Difable
+		// Bansos — Household Level
+		ColISBpnt     = 105 // IS Bpnt
+		ColBpntThnH   = 107 // Bpnt Thn
+		ColISPkh      = 108 // IS Pkh
+		ColPkhThnH    = 110 // Pkh Thn
+		ColISBlt      = 111 // IS Blt
+		ColISListrik  = 114 // IS Listrik
+		ColISBanpem   = 117 // IS Banpem
+		ColISPupuk    = 120 // IS Pupuk
+		ColISLpg      = 123 // IS Lpg
+		ColISBaznas   = 126 // IS Baznas
+		ColISCsr      = 129 // IS Csr
+		ColISEkstremH = 51  // IS Ekstrem
+		ColISStun     = 52  // IS Stun
 
-		// Aid Flags (Boolean/Ket)
-		ColISBpnt      = 36
-		ColISPkh       = 39
-		ColISBlt       = 42
-		ColISBanpem    = 48 // Bantuan Pemerintah (Assuming generic) or use specific columns
-		ColISPupuk     = 49
-		ColISLpg       = 50
-		ColISBaznas    = 53
-		ColISInet      = 76
-		ColISBank      = 77
-		ColISNpwp      = 133
-		ColISTki       = 136
-		ColISRokok     = 138
-		ColISUsh       = 139
-		ColSosJamkes   = 143
-		ColSosPrakerja = 144
-		ColSosKur      = 145
-		ColSosMikro    = 146
-		ColSosPip      = 147
-		ColSosJamket   = 149
-
-		// New Analytics Columns
-		ColHouseStatus = 29 // ID Rumah Milik (Ket) - Guessing based on proximity to other housing vars
-		// Need to verify ColHouseStatus index. Assuming standard Susenas structure or user provided file.
-		// Let's use a safe assumption or string search if possible.
-		// Actually, let's look for "ID Rumah Milik (Ket)" or similar.
-		// For now, I will use logic to parse from "Keterangan" if specific col is missing or use placeholder.
-		// Wait, I don't have exact column index for "Status Kepemilikan Rumah".
-		// I'll try to deduce or use a generic one.
-		// Let's use 29 as a placeholder or try to find it.
+		// Member-level aid flags
+		ColSosJamkes   = 289 // Sos Jamkes
+		ColSosPrakerja = 290 // Sos Prakerja
+		ColSosKur      = 291 // Sos Kur
+		ColSosMikro    = 292 // Sos Mikro
+		ColSosPip      = 293 // Sos Pip
+		ColSosJamket   = 294 // Sos Jamket
+		ColISInet      = 159 // IS Inet
+		ColISBank      = 160 // IS Bank
+		ColISNpwp      = 257 // IS Npwp
+		ColISTki       = 259 // IS Tki
+		ColISRokok     = 262 // IS Rokok
+		ColISUsh       = 265 // IS Ush
+		ColHouseStatus = 29  // ID Rumah Milik placeholder
 	)
 
 	// Load Boundary
@@ -301,23 +312,12 @@ func ParseExcel(filename string) ([]Household, error) {
 
 	householdsMap := make(map[string]*Household)
 
-	// Start from row index 1 (2nd row) assuming 0 is header
-	// Inspect showed:
-	// Row 0: Headers (Unnamed: 0, ID Rumah tangga, ...)
-	// Row 1: Data starts
-	// Wait, sample output showed "Row 0" as data but pandas index 0 corresponds to Excel row 2 usually if header=0.
-	// The `rows` from excelize is 0-indexed slice of all rows.
-	// If the file has 1 header row:
-	// Row 0: Headers
-	// Row 1: Data 1
-	startRow := 1
-
-	// Check if Row 0 is indeed header
-	if len(rows) > 0 {
-		if strings.Contains(strings.ToLower(rows[0][ColNoKK]), "kk") {
-			startRow = 1
-		}
-	}
+	// File '1 KK_ART Pondokrejo.xlsx' memiliki 3 baris header:
+	// Row 0: Judul laporan
+	// Row 1: Kode variabel (r101, r102, dst)
+	// Row 2: Nama kolom (NO KK, Nama Kepala KK, dst)
+	// Row 3+: Data
+	startRow := 3
 
 	for i := startRow; i < len(rows); i++ {
 		row := rows[i]
@@ -447,36 +447,45 @@ func ParseExcel(filename string) ([]Household, error) {
 				incomeCat = "> Rp2 Juta"
 			}
 
-			// 2. Infrastructure
-			sanitation := getVal(ColSanitation)
-			hasLatrine := false
-			if strings.Contains(strings.ToUpper(sanitation), "MILIK SENDIRI") {
-				hasLatrine = true
+			// 2. Infrastructure - Gunakan kode numerik PBDT
+			// ID Fasbab: 1=Milik Sendiri, 2=Bersama, 3=Umum, 4=Sungai, 5=Tdk Ada, 6=Lainnya
+			sanitation := strings.TrimSpace(getVal(ColSanitation))
+			hasLatrine := sanitation == "1" // Hanya kode 1 = Milik Sendiri
+
+			// ID Airminum: 1=Ledeng PLN, 2=Ledeng eceran, 3=Sumur bor, 4=Sumur galian,
+			// 5=Mata Air, 6=Air hujan, 7=Sungai/Danau, 8=Lainnya
+			water := strings.TrimSpace(getVal(ColWaterSource))
+			hasCleanWater := water != "7" && water != "" // Kode 7 = Sungai/Danau
+
+			// House status: gunakan ID Atap+Dinding sebagai proxy RTLH
+			// ID Dinding: 1=Tembok (baik), 2=Papan, 3=Bambu, 4=Lainnya
+			// ID Atap: 1=Genteng (baik), 2=Asbes, 3=Seng, 4=Ijuk, 5=Daun/Lainnya
+			// RTLH = dinding bukan tembok (bukan 1) ATAU atap buruk (4/5)
+			dindingCode := strings.TrimSpace(getVal(ColWallType))
+			atapCode := strings.TrimSpace(getVal(ColRoofType))
+			houseStatus := "Milik Sendiri" // Default
+			if dindingCode != "1" && dindingCode != "" {
+				houseStatus = "RTLH" // Dinding bukan tembok
+			} else if atapCode == "4" || atapCode == "5" {
+				houseStatus = "RTLH" // Atap buruk
 			}
 
-			water := getVal(ColWaterSource)
-			hasCleanWater := true
-			if strings.Contains(strings.ToUpper(water), "SUNGAI") || strings.Contains(strings.ToUpper(water), "DANAU") {
-				hasCleanWater = false
+			// Parse Bansos flags (1=Ya, 2=Tidak)
+			isBoolVal := func(v string) bool {
+				v = strings.TrimSpace(strings.ToUpper(v))
+				return v == "1" || v == "YA" || v == "Y"
 			}
-
-			// 3. House Status (Approximate from Col 29 if valid, or just assume)
-			// Since we don't have exact column confirmed, we'll try to use what we have or skip
-			houseStatus := getVal(29) // Try index 29
-			if houseStatus == "" {
-				houseStatus = "Milik Sendiri"
-			} // Default
 
 			hh = &Household{
 				NoKK:           noKK,
-				HeadName:       headName,
+				HeadName:       headName, // Initial guess, will be refined if relation=1 found
 				Address:        address,
 				Dusun:          dusunName,
 				Latitude:       lat,
 				Longitude:      lng,
 				WelfareLevel:   welfare,
-				PkhThn:         getVal(ColPkhThn),
-				BpntThn:        getVal(ColBpntThn),
+				PkhThn:         getVal(ColPkhThnH),
+				BpntThn:        getVal(ColBpntThnH),
 				LantaiLuas:     getVal(ColFloorArea),
 				Keterangan:     getVal(ColKeterangan),
 				Expenditure:    getVal(ColExpenditure),
@@ -489,12 +498,24 @@ func ParseExcel(filename string) ([]Household, error) {
 				HouseStatus:    houseStatus,
 				HasLatrine:     hasLatrine,
 				HasCleanWater:  hasCleanWater,
-				Members:        []Resident{},
+				// Bansos
+				IsBpnt:    isBoolVal(getVal(ColISBpnt)),
+				BpntThnV:  getVal(ColBpntThnH),
+				IsPkh:     isBoolVal(getVal(ColISPkh)),
+				PkhThnV:   getVal(ColPkhThnH),
+				IsBlt:     isBoolVal(getVal(ColISBlt)),
+				IsListrik: isBoolVal(getVal(ColISListrik)),
+				IsBaznas:  isBoolVal(getVal(ColISBaznas)),
+				IsLpg:     isBoolVal(getVal(ColISLpg)),
+				IsBanpem:  isBoolVal(getVal(ColISBanpem)),
+				IsEkstrem: isBoolVal(getVal(ColISEkstremH)),
+				IsStun:    isBoolVal(getVal(ColISStun)),
+				Members:   []Resident{},
 			}
 			householdsMap[uniqueKey] = hh
 		} else {
 			// Update coordinates if they were missing and now found
-			if hh.Latitude == 0 && hh.Longitude == 0 && hasCoord {
+			if (hh.Latitude == 0 || hh.Longitude == 0) && hasCoord {
 				hh.Latitude = lat
 				hh.Longitude = lng
 			}
@@ -521,7 +542,10 @@ func ParseExcel(filename string) ([]Household, error) {
 		// Note: We need to verify if this person is Head.
 		// Excel usually has "Hubungan Keluarga" column.
 		relation := getVal(ColRelation)
-		if strings.Contains(strings.ToUpper(relation), "KEPALA") {
+		// ID Hub Keluarga: 1=Kepala, 2=Istri, 3=Anak, 4=Menantu, 5=Cucu, 6=Orang Tua, 7=Mertua, 8=Lainnya
+		isHead := strings.TrimSpace(relation) == "1"
+		if isHead {
+			hh.HeadName = name // Correctly set head name
 			if age > 65 {
 				hh.IsElderlyHead = true
 			}
@@ -573,8 +597,19 @@ func ParseExcel(filename string) ([]Household, error) {
 		hh.Members = append(hh.Members, member)
 	}
 
-	// Convert map to slice
+	// Post-processing and map to slice conversion
 	var result []Household
+	for _, hh := range householdsMap {
+		// Calculate Stunting Risk if not explicitly set in Excel
+		// Logic: Miskin (Desil 1, 2, 3) + Has Toddler = Stunting Risk
+		if !hh.IsStun {
+			isPoor := hh.WelfareLevel == "1" || hh.WelfareLevel == "2" || hh.WelfareLevel == "3"
+			if isPoor && hh.HasToddler {
+				hh.IsStun = true
+			}
+		}
+		result = append(result, *hh)
+	}
 
 	// Verification Map for Dusun Counts
 	dusunCounts := make(map[string]int)
@@ -627,6 +662,15 @@ func ParseExcel(filename string) ([]Household, error) {
 	}
 
 	for _, hh := range householdsMap {
+		// Derive IsStun: keluarga miskin (Desil 1-2) yang memiliki balita < 5 tahun
+		// Kolom IS Stun di file Excel kosong — dihitung secara derivatif
+		if hh.HasToddler {
+			wl := strings.TrimSpace(hh.WelfareLevel)
+			if wl == "1" || wl == "2" {
+				hh.IsStun = true
+			}
+		}
+
 		// Only include households with valid coordinates for the map
 		if hh.Latitude != 0 && hh.Longitude != 0 {
 			result = append(result, *hh)
