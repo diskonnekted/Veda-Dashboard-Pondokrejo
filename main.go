@@ -19,7 +19,7 @@ var templateFS embed.FS
 //go:embed layers/*
 var layersFS embed.FS
 
-//go:embed *.png *.JPG PONDOKREJO.geojson *.md
+//go:embed *.png *.JPG PONDOKREJO.geojson *.md residents.json
 var assetsFS embed.FS
 
 func main() {
