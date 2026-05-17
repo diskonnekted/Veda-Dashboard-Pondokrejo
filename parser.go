@@ -97,6 +97,18 @@ func LoadBoundary(filename string) (*GeoJSON, error) {
 	return &geo, nil
 }
 
+func LoadResidentsJSON(filename string) ([]Household, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var households []Household
+	if err := json.Unmarshal(data, &households); err != nil {
+		return nil, err
+	}
+	return households, nil
+}
+
 func IsPointInPolygon(lat, lng float64, geo *GeoJSON) bool {
 	// Simple Ray Casting
 	// PONDOKREJO.geojson is MultiPolygon

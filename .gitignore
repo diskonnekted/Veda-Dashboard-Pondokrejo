@@ -12,8 +12,8 @@ Thumbs.db
 
 # Sensitive Data
 *.xlsx
-residents.json
 1 KK_ART Pondokrejo.xlsx
+!residents.json
 
 # Temp Files
 arcgis_*.json

@@ -27,10 +27,27 @@ func main() {
 		return
 	}
 
-	// Parse Excel Data
-	households, err := ParseExcel("1 KK_ART Pondokrejo.xlsx")
-	if err != nil {
-		log.Fatalf("Error parsing excel: %v", err)
+	// Parse Data (Excel or JSON fallback)
+	var households []Household
+	var err error
+
+	excelFile := "1 KK_ART Pondokrejo.xlsx"
+	jsonFile := "residents.json"
+
+	if _, statErr := os.Stat(excelFile); statErr == nil {
+		fmt.Println("Loading from Excel...")
+		households, err = ParseExcel(excelFile)
+		if err != nil {
+			log.Fatalf("Error parsing excel: %v", err)
+		}
+	} else if _, statErr := os.Stat(jsonFile); statErr == nil {
+		fmt.Println("Excel not found. Falling back to residents.json...")
+		households, err = LoadResidentsJSON(jsonFile)
+		if err != nil {
+			log.Fatalf("Error loading residents.json: %v", err)
+		}
+	} else {
+		log.Fatalf("Error: Neither %s nor %s found", excelFile, jsonFile)
 	}
 
 	editorStore := NewEditorStore("editor_state.json")
