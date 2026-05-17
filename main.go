@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -159,7 +160,8 @@ func main() {
 	})
 
 	// Serve Layers (GeoJSON) from embedded layersFS
-	r.StaticFS("/layers", http.FS(layersFS))
+	layersSub, _ := fs.Sub(layersFS, "layers")
+	r.StaticFS("/layers", http.FS(layersSub))
 
 	// Serve Images from embedded assetsFS
 	r.GET("/logo.png", func(c *gin.Context) {
