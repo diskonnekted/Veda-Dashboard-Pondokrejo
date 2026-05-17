@@ -1,15 +1,26 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
 )
+
+//go:embed templates/*
+var templateFS embed.FS
+
+//go:embed layers/*
+var layersFS embed.FS
+
+//go:embed *.png *.JPG PONDOKREJO.geojson *.md
+var assetsFS embed.FS
 
 func main() {
 	// Parse CLI flags
@@ -27,12 +38,11 @@ func main() {
 		return
 	}
 
-	// Parse Data (Excel or JSON fallback)
+	// Parse Data (Excel or Embedded JSON)
 	var households []Household
 	var err error
 
 	excelFile := "1 KK_ART Pondokrejo.xlsx"
-	jsonFile := "residents.json"
 
 	if _, statErr := os.Stat(excelFile); statErr == nil {
 		fmt.Println("Loading from Excel...")
@@ -40,14 +50,13 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error parsing excel: %v", err)
 		}
-	} else if _, statErr := os.Stat(jsonFile); statErr == nil {
-		fmt.Println("Excel not found. Falling back to residents.json...")
-		households, err = LoadResidentsJSON(jsonFile)
-		if err != nil {
-			log.Fatalf("Error loading residents.json: %v", err)
+	} else if len(EmbeddedResidentsData) > 0 {
+		fmt.Println("Excel not found. Loading from embedded residents.json...")
+		if err := json.Unmarshal(EmbeddedResidentsData, &households); err != nil {
+			log.Fatalf("Error unmarshaling embedded residents.json: %v", err)
 		}
 	} else {
-		log.Fatalf("Error: Neither %s nor %s found", excelFile, jsonFile)
+		log.Fatalf("Error: Excel file not found and embedded data is empty")
 	}
 
 	editorStore := NewEditorStore("editor_state.json")
@@ -87,8 +96,9 @@ func main() {
 	// Server Mode
 	r := gin.Default()
 
-	// Load HTML templates
-	r.LoadHTMLGlob("templates/*")
+	// Load HTML templates from embed.FS
+	templ := template.Must(template.New("").ParseFS(templateFS, "templates/*.html"))
+	r.SetHTMLTemplate(templ)
 
 	// Routes
 	r.GET("/", func(c *gin.Context) {
@@ -138,34 +148,66 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
-	// Serve boundary.geojson (matching static filename)
-	r.StaticFile("/boundary.geojson", "PONDOKREJO.geojson")
+	// Serve boundary.geojson from embedded assets
+	r.GET("/boundary.geojson", func(c *gin.Context) {
+		data, err := assetsFS.ReadFile("PONDOKREJO.geojson")
+		if err != nil {
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+		c.Data(http.StatusOK, "application/json", data)
+	})
 
-	// Serve Layers (GeoJSON) from 'layers' directory
-	// This replaces all individual r.StaticFile calls for layers
-	// Ensure the 'layers' directory exists in the root
-	r.Static("/layers", "./layers")
+	// Serve Layers (GeoJSON) from embedded layersFS
+	r.StaticFS("/layers", http.FS(layersFS))
 
-	// Serve Images
-	r.StaticFile("/logo.png", "./logo.png")
-	r.StaticFile("/veda-logo.png", "./veda-logo.png")
-	r.StaticFile("/clasnet-logo.png", "./clasnet-logo.png")
-	r.StaticFile("/login.jpg", "./login.jpg")
-	r.StaticFile("/background.jpg", "./background.jpg")
+	// Serve Images from embedded assetsFS
+	r.GET("/logo.png", func(c *gin.Context) {
+		data, err := assetsFS.ReadFile("logo.png")
+		if err != nil {
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+		c.Data(http.StatusOK, "image/png", data)
+	})
+	r.GET("/veda-logo.png", func(c *gin.Context) {
+		data, err := assetsFS.ReadFile("veda-logo.png")
+		if err != nil {
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+		c.Data(http.StatusOK, "image/png", data)
+	})
+	r.GET("/clasnet-logo.png", func(c *gin.Context) {
+		data, err := assetsFS.ReadFile("clasnet-logo.png")
+		if err != nil {
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+		c.Data(http.StatusOK, "image/png", data)
+	})
+	r.GET("/background.jpg", func(c *gin.Context) {
+		data, err := assetsFS.ReadFile("background.JPG")
+		if err != nil {
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+		c.Data(http.StatusOK, "image/jpeg", data)
+	})
 
 	// Recommendations Page
 	r.GET("/recommendations", func(c *gin.Context) {
-		rek, err1 := os.ReadFile("rekomendasi-hasil-analitik.md")
+		rek, err1 := assetsFS.ReadFile("rekomendasi-hasil-analitik.md")
 		if err1 != nil {
 			rek = []byte("# Error loading recommendation file")
 		}
 
-		act, err2 := os.ReadFile("action-plan.md")
+		act, err2 := assetsFS.ReadFile("action-plan.md")
 		if err2 != nil {
 			act = []byte("# Error loading action plan file")
 		}
 
-		gis, err3 := os.ReadFile("gis-desa.md")
+		gis, err3 := assetsFS.ReadFile("gis-desa.md")
 		if err3 != nil {
 			gis = []byte("# Error loading GIS file")
 		}

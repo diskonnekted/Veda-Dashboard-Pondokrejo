@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/xuri/excelize/v2"
 )
+
+//go:embed residents.json
+var EmbeddedResidentsData []byte
 
 type Resident struct {
 	Name        string   `json:"name"`
